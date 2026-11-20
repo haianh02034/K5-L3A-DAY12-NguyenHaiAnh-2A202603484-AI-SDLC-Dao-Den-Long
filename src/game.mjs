@@ -188,7 +188,7 @@ function flyShade(g,s){
   let floor=surface(g.night,nx,nz);
   if(floor>y+.55||(floor===6&&Math.hypot(nx,nz)<2&&newY<14)){
     nx=x;nz=z;floor=surface(g.night,x,z);
-    if(s.state==='stunned')s.push=0;
+    if(s.state==='stunned'&&s.push>0){s.push=0;s.pulseBlocked=true;}
   }
   if(trajectory.vy<=0&&newY<=floor){
     newY=floor;s.launch=null;
@@ -288,6 +288,7 @@ function driveShade(g,s,lit,resolve) {
       floor=surface(g.night,nx,nz);
       terrainBlocks=false;
       s.push=0;
+      s.pulseBlocked=true;
     }
   }
   if(walking&&(terrainBlocks||(nx===s.pos[0]&&nz===s.pos[2]))&&(dx||dz)){
@@ -417,14 +418,16 @@ export function step(g,input=idleInput,resolve=null){
     for(const s of targets){
       g.score+=s.state==='drain'?15:5;
       s.targetLanternId=null;
-      s.state='stunned';s.left=120;s.push=15;
+      s.state='stunned';s.left=120;s.push=15;s.pulseBlocked=false;
       s.direction=unit(s.pos[0]-center[0],s.pos[2]-center[2]);
     }
     emit('pulse',{stunned_ids:targets.map(s=>s.id)});
+    g.pulseDrifters=0;
     for(const d of g.drifters){
       if(length3(d.pos,center)>5)continue;
-      if(d.state==='chase'){d.state='flee';d.left=240;}
+      if(d.state==='chase'){d.state='flee';d.left=240;g.pulseDrifters++;}
       else if(d.state==='flee'&&d.stolen){
+        g.pulseDrifters++;
         drop(g,d.stolen,d.pos,false);
         emit('drifter_drop',{drifter_id:d.id,amount:d.stolen});d.stolen=0;d.left=120;
       }

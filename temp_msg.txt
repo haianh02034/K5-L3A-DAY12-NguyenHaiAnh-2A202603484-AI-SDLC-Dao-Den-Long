@@ -1,1 +1,1 @@
-Restore fixed tuning and route shades to the bell tower
+Fix pulse knockback inside wards and at obstacles

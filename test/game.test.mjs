@@ -254,3 +254,19 @@ test('Q advances to a solid obstacle before stopping and leaves the shade stunne
   assert.equal(g.shades[0].push,0);
   assert.equal(g.shades[0].state,'stunned');
 });
+
+test('one Q separates clear push, obstructed push, another elevation and a drifter',()=>{
+  const g=createGame(9,{...quiet,player:{carried:3},random_drifters:false,
+    shades:[{id:'S1',pos:[-2,0,0]},{id:'S2',pos:[2,0,0]},{id:'S3',pos:[0,6,0]}],
+    drifters:[{pos:[0,1,2],state:'chase'}]},2);
+  const resolve=(x,z,toX,toZ)=>toX>2.10?[x,z]:[toX,toZ];
+  const events=step(g,input({pulse:true}),resolve);
+  assert.deepEqual(events.find(e=>e.name==='pulse').data.stunned_ids,['S1','S2']);
+  assert.equal(g.pulseDrifters,1);
+  for(let i=1;i<15;i++)step(g,idleInput,resolve);
+  assert.ok(Math.abs(g.shades[0].pos[0]+6)<1e-8);
+  assert.equal(g.shades[0].pulseBlocked,false);
+  assert.equal(g.shades[1].pulseBlocked,true);
+  assert.notEqual(g.shades[2].state,'stunned');
+  assert.equal(g.drifters[0].state,'flee');
+});

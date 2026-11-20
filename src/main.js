@@ -450,7 +450,7 @@ const carriedLight=new T.PointLight('#ffb170',47,13,2);
 scene.add(carriedLight);
 const pulseRing=model(scene,new T.RingGeometry(.90,1,64),flat('#ffc879',{transparent:true,opacity:0,side:T.DoubleSide,depthWrite:false}),0,.35,0);
 pulseRing.rotation.x=-Math.PI/2;
-let pulseAge=2,pulseHits=0;
+let pulseAge=2,pulseHits=[];
 const dragons=createPulseDragons(scene);
 const guardianAura=new T.Group();
 scene.add(guardianAura);
@@ -880,7 +880,7 @@ renderer.setAnimationLoop(now=>{
     for(const e of events){
       if(e.name==='pulse'){
         pulseAge=0;
-        pulseHits=e.data.stunned_ids.length;
+        pulseHits=e.data.stunned_ids;
         dragons.start(...game.player.pos);
         pulseRing.position.set(game.player.pos[0],game.player.pos[1]+.22,game.player.pos[2]);
       }
@@ -1013,9 +1013,17 @@ function updateHud(px,py,pz,litCount){
   ui.flames.textContent='◆'.repeat(p.flames)+'◇'.repeat(3-p.flames);
   ui.score.textContent=campaignTotal+game.score;
   ui['dash-cd'].textContent='➤ Lướt '+(p.dashCd?(p.dashCd/60).toFixed(1)+' s':p.charm?'· Bùa Gió':'· Sẵn sàng');
-  ui['pulse-cd'].textContent=pulseAge<1.15
-    ? '✦ '+(pulseHits?'Choáng '+pulseHits+' Bóng Mực':'Ngoài tầm')
-    : '✦ Tỏa sáng '+(p.pulseCd?(p.pulseCd/60).toFixed(1)+' s':'· '+p.carried+'/3');
+  if(pulseAge<1.7){
+    const effects=[];
+    if(pulseHits.length){
+      const blocked=game.shades.filter(s=>pulseHits.includes(s.id)&&s.pulseBlocked).length;
+      effects.push('Choáng '+pulseHits.length+' Bóng Mực'+(blocked?' · '+blocked+' bị chặn lực đẩy':''));
+    }
+    if(game.pulseDrifters)effects.push('Xua '+game.pulseDrifters+' Gió Lạc');
+    ui['pulse-cd'].textContent='✦ '+(effects.join(' · ')||'Không trúng mục tiêu');
+  }else{
+    ui['pulse-cd'].textContent='✦ Tỏa sáng '+(p.pulseCd?(p.pulseCd/60).toFixed(1)+' s':'· '+p.carried+'/3');
+  }
   const seconds=Math.ceil(timeLeft(game));
   ui.time.textContent=(seconds<=30&&settings.accessible?'⚠ ':'')+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
   ui.time.classList.toggle('danger',seconds<=30);
