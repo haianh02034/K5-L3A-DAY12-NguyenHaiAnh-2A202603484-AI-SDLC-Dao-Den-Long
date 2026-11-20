@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "start": "node scripts/serve.mjs"
   },
   "dependencies": {
     "three": "0.187.0"

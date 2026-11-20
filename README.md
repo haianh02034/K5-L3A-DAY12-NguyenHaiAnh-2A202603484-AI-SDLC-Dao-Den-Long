@@ -1,18 +1,34 @@
-# Day 12 — AI SDLC: Đảo Đèn Lồng
+# Đảo Đèn Lồng
 
-## Bản chơi thử Checkpoint 0
+## Chạy Đêm 1 · Đảo Bến
 
-Cần Node.js 24. Chạy hai lệnh từ thư mục repo:
+Dùng Node.js 24. Từ thư mục repo:
 
 ```sh
 npm ci
 npm run build
+npm start
 ```
 
-Mở `dist/index.html` trong trình duyệt có WebGL 2. File chạy offline. Di chuyển bằng WASD, phím mũi tên hoặc chạm/nhấp vào mặt đất. Gom 6 đom đóm rồi đến Đèn Lồng Lớn ở phía bắc.
+Mở http://127.0.0.1:4173. Có thể mở trực tiếp `dist/index.html` để chơi offline trên trình duyệt có WebGL 2.
 
-Dữ liệu màn chơi nằm tại [src/island.json](src/island.json). Chạy `npm test` để kiểm tra logic. Xem [ghi chép Checkpoint 0](docs/checkpoint-0.md) để biết giả định và bằng chứng.
+- WASD hoặc phím mũi tên để di chuyển, Space để nhảy, E để nạp đèn, Q để tỏa sáng. Có thể nhấp vào mặt đất để di chuyển.
+- Trên màn hình cảm ứng, chạm lên mặt đất để di chuyển và dùng các nút hành động.
+- Gom ánh sáng và thắp cả năm đèn trước bình minh. Điểm gồm 10 mỗi đom đóm, 200 mỗi đèn, 30 mỗi Bóng Mực bị choáng. Khi thắng, cộng 2 mỗi giây nguyên còn lại và 100 mỗi sinh lực còn lại.
 
+## Kiểm thử
+
+Chạy `npm test`. Thông số chấm điểm và lệnh chính thức có trong [game.contract.json](game.contract.json).
+
+```sh
+node scripts/headless.mjs --seed 42 --night 1 --ticks 120 --snapshot-every 60 --out replay.jsonl
+```
+
+Có thể thêm `--scenario scenario.json` và `--inputs inputs.json` để chạy kịch bản riêng. Xem [giả định và kiểm chứng](docs/phase-1.md).
+
+## Sáng tạo của tôi
+
+Đảo Bến có đường kính khoảng 192 m, năm đền có tên riêng, đường đá trong rừng, vách đá lơ lửng trên biển mây và bản đồ nhỏ. Mây mặc áo chàm, khăn đỏ và nón lá treo đèn. Biển mây, công trình và hoạt ảnh chỉ hiển thị trong bản 3D. Các bài kiểm tra mô phỏng và CLI chạy độc lập với WebGL.
 
 > **Cá nhân** (1 người / 1 MSSV) · Áp dụng SDLC cùng AI để xây một **game 3D** qua **4 phase**, từ yêu cầu ban đầu tới bản phát hành.
 > **Lab board + trợ giảng:** **[Đảo Đèn Lồng Lab](https://claude.ai/artifact/Q1RYyv1dxjUczzCbd2ZnoW)**

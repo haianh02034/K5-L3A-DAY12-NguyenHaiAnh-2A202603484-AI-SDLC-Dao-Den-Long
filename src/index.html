@@ -4,16 +4,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Đảo Đèn Lồng</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#07131c;color:#f7ead3;font:16px system-ui,sans-serif;overflow:hidden}canvas{display:block;width:100vw;height:100vh;touch-action:none}
-main{position:fixed;inset:0;pointer-events:none;padding:clamp(20px,5vw,64px);display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(ellipse at center,transparent 53%,#020809aa 100%)}
-h1{font:clamp(30px,4vw,60px)/1 Georgia,serif;letter-spacing:-.045em;margin:0 0 14px;text-shadow:0 2px 20px #03131b}
-p{margin:0;color:#e7d5b5;text-shadow:0 2px 8px #000}
-#count{display:inline-block;color:#ffd483;font-weight:700;margin-top:13px;padding:7px 13px;border-radius:18px;background:#0b1822db;border:1px solid #dba95d66}
-.help{font-size:13px;letter-spacing:.04em;align-self:center;text-align:center;background:#08131ad9;padding:9px 17px;border-radius:22px}
+:root{color-scheme:dark;--paper:#fff0d5;--dim:#d6c7d9;--line:#ffddba32;--frame:#171524de}
+*{box-sizing:border-box}body{margin:0;background:#242746;color:var(--paper);font:15px/1.4 system-ui,sans-serif;overflow:hidden}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+main{position:fixed;inset:0;pointer-events:none;padding:clamp(16px,3.3vw,54px);background:radial-gradient(ellipse at 54% 48%,transparent 54%,#100e237d 100%)}
+header{max-width:min(90vw,620px);text-shadow:0 2px 20px #1c1735}
+.eyebrow{margin:0 0 5px;color:#ffca90;font-size:11px;letter-spacing:.25em;text-transform:uppercase;font-weight:750}
+h1,h2{font:600 clamp(31px,4.6vw,66px)/1.05 "Times New Roman",serif;letter-spacing:-.035em;margin:0}
+#objective{color:#fff1db;margin:.62em 0 1.05em}
+.stats{display:flex;flex-wrap:wrap;gap:1px;width:max-content;max-width:100%;margin:0;border:1px solid var(--line);border-radius:13px;background:var(--line);overflow:hidden;font-variant-numeric:tabular-nums}
+.stats div{min-width:66px;padding:7px 11px;background:var(--frame)}dt{color:var(--dim);font-size:10px}dd{margin:0;font-size:15px;font-weight:700;color:#ffe0a9}
+#map{position:fixed;bottom:clamp(58px,7vw,100px);right:clamp(16px,3vw,48px);width:clamp(87px,12vw,164px);height:auto}
+.help{position:fixed;bottom:17px;left:50%;transform:translateX(-50%);width:max-content;max-width:94vw;margin:0;text-align:center;background:var(--frame);border:1px solid var(--line);padding:8px 17px;border-radius:22px;color:var(--dim);font-size:12px}
+.touch{display:none;position:fixed;left:16px;bottom:50px;gap:6px}
+button{pointer-events:auto;padding:9px 15px;border-radius:8px;background:#eee0c6;color:#282034;border:1px solid #efc283;font-weight:750;cursor:pointer}
+#ending{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;padding:30px 38px;width:min(440px,92vw);border:1px solid var(--line);border-radius:18px;background:#191528ee;box-shadow:0 16px 60px #110d28aa}
+#ending h2{font-size:40px}#ending p{color:var(--dim)}
+@media(pointer:coarse){.touch{display:flex}.desktop{display:none}}
+@media(pointer:fine){.mobile{display:none}}
+@media(max-width:540px){.stats div{min-width:53px;padding:5px 7px}dd{font-size:13px}#objective{font-size:12px}}
 </style>
 <main>
-  <header><h1>Đảo Đèn Lồng</h1><p id="objective" role="status">Gom đom đóm để thắp Đèn Lồng Lớn.</p><span id="count"></span></header>
-  <p class="help">WASD / ↑ ↓ ← → để di chuyển · Chạm hoặc nhấp để đi tới</p>
+<header>
+<p class="eyebrow">Đêm 1 · Đảo Bến</p>
+<h1>Đảo Đèn Lồng</h1>
+<p id="objective">Gom đom đóm và thắp sáng năm ngôi đền.</p>
+<dl class="stats">
+<div><dt>Đèn</dt><dd id="lights">0 / 5</dd></div>
+<div><dt>Đom đóm</dt><dd id="motes">0 / 14</dd></div>
+<div><dt>Sinh lực</dt><dd id="flames">3 / 3</dd></div>
+<div><dt>Còn lại</dt><dd id="time">7:00</dd></div>
+<div><dt>Điểm</dt><dd id="score">0</dd></div>
+</dl>
+</header>
+<canvas id="map" width="180" height="180" aria-label="Bản đồ vị trí Mây và năm đèn"></canvas>
+<p class="help desktop">WASD / phím mũi tên · Space nhảy · E nạp đèn · Q tỏa sáng</p>
+<p class="help mobile">Chạm lên mặt đất để di chuyển</p>
+<div class="touch"><button id="jump">Nhảy</button><button id="interact">Nạp đèn</button><button id="pulse">Tỏa sáng</button></div>
+<section id="ending" hidden><h2 id="result"></h2><p id="summary"></p><button id="restart">Chơi lại</button></section>
 </main>
 <!-- GAME -->
 </html>
