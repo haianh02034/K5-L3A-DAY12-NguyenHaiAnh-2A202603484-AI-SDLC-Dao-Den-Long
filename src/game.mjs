@@ -199,7 +199,7 @@ function flyShade(g,s){
   s.pos=[nx,newY,nz];
 }
 
-function driveShade(g,s,lit,resolve) {
+function driveShade(g,s,lit,resolve,forceWander=false) {
   const p=g.player.pos;
   if(s.launch){flyShade(g,s);return false;}
   if(s.state==='drain'){
@@ -230,7 +230,7 @@ function driveShade(g,s,lit,resolve) {
   }else if(s.state==='recoil'&&s.left>0){
     [dx,dz]=s.direction.map(v=>v*2/60);
   }else{
-    const d=distance(p,s.pos);
+    const d=forceWander?Infinity:distance(p,s.pos);
     const speed=(g.night===3?tuning.shade_speed_night3:tuning.shade_speed)/hz;
     const notice=12,leash=18;
     if(d<=notice||(s.state==='chase'&&d<=leash)){
@@ -324,6 +324,12 @@ function driveShade(g,s,lit,resolve) {
     s.state='drain';s.targetLanternId=drainTarget.id;return false;
   }
   return s.state==='chase'||s.state==='wander';
+}
+
+export function benchmarkStep(game){
+  game.simTick++;
+  const safe=game.lanterns.filter(isSafe);
+  for(const shade of game.shades)driveShade(game,shade,safe,null,true);
 }
 
 function moveDrifter(g,d) {

@@ -1,8 +1,14 @@
 # Đảo Đèn Lồng
 
+[Video demo](docs/demo/demo.mp4) · [Changelog](CHANGELOG.md) · [Retro](docs/retro.md)
+
+Game phiêu lưu 3D qua ba hòn đảo. Giúp Mây giữ đủ đèn sáng tới bình minh.
+
+![Đảo Bến trong bản Phase 4](docs/proof/gameplay.png)
+
 ## Chơi Ba Hòn Đảo
 
-Dùng Node.js 24. Từ thư mục repo:
+Yêu cầu Node.js 24 và trình duyệt có WebGL 2 trên macOS, Linux hoặc Windows. Từ thư mục repo:
 
 ```sh
 npm ci
@@ -17,13 +23,27 @@ Mở http://127.0.0.1:4173 hoặc mở trực tiếp `dist/index.html` trong tr�
 
 ## Kiểm thử
 
-Chạy `npm test`. Xem [Test Contract v1.2](game.contract.json) và [ghi chép Phase 3](docs/phase-3.md).
+Chạy `npm test`. Xem [Test Contract v1.3](game.contract.json) và [ghi chép Phase 3](docs/phase-3.md).
 
 ```sh
 node scripts/headless.mjs --seed 42 --night 2 --ticks 1200 --snapshot-every 60 --out replay.jsonl
 ```
 
 `--night` nhận 1, 2 hoặc 3. Có thể thêm `--scenario scenario.json` và `--inputs inputs.json`. Khoảng cách và chuyển động dùng hệ tọa độ XZ, Y hướng lên. Đom đóm ngẫu nhiên không hết hạn nên có `ttl_s: null`.
+
+## Đo hiệu năng và xuất điểm
+
+Benchmark cần Chrome, Edge hoặc Chromium đã cài. Nếu Chromium nằm ngoài đường dẫn mặc định, đặt biến môi trường `PLAYWRIGHT_CHROMIUM_EXECUTABLE` trỏ tới file thực thi. Chạy benchmark từ cửa sổ desktop. Kích thước vùng game là 1280×720. Chromium nhận cờ tắt giới hạn khung hình và VSync, nhưng WebGL không xác nhận được VSync ở compositor nên JSON ghi `vsync_off: false`. Bản web không có RSS của tiến trình render đáng tin cậy, nên `peak_mem_mb: null`.
+
+```sh
+node scripts/bench.mjs --seed 42 --duration 30 --out bench.json
+node --expose-gc --jitless --max-semi-space-size=1 scripts/soak.mjs --seed 7 --nights 10 --out soak.json
+npm start -- --export-leaderboard out.json
+```
+
+Soak báo RSS thực của cùng tiến trình Node trước và sau 10 Đêm. Các cờ Node cố định chế độ JIT và kích thước vùng heap trẻ để có thể lặp lại phép đo. Xem [benchmark](docs/proof/bench.json), [soak](docs/proof/soak.json) và [headless](docs/proof/headless.jsonl) đã chạy. Trên máy Windows đã thử, 1% low dưới ngưỡng chuẩn; máy chấm chưa được đo.
+
+Bảng xếp hạng top 10 lưu trên đĩa khi chơi từ `npm start`. Sử dụng cùng cách chạy để xuất bằng CLI. Bản HTML mở trực tiếp lưu bảng điểm bằng bộ nhớ cục bộ của trình duyệt. Cỡ chữ chuẩn là 18 px tại 1280×720. Trong Cài đặt có Đổi phím, Chữ lớn, Giảm chuyển động và Bảng màu dễ phân biệt.
 
 ## Sáng tạo của tôi
 

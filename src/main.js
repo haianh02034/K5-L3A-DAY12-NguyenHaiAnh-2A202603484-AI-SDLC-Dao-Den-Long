@@ -2,6 +2,10 @@ import * as T from 'three';
 import { maps, surface } from './maps.mjs';
 import { createAudio } from './audio.mjs';
 import { createPulseDragons } from './pulse-dragons.mjs';
+import { runBenchmark } from './benchmark.mjs';
+import { rank,validScore } from './leaderboard.mjs';
+const query=new URLSearchParams(location.search);
+const benchmarking=query.has('bench');
 import { canReceive, capacity, isSafe, isWeak, lightCost, fullFuel } from './lanterns.mjs';
 
 const route=location.hash.slice(1);
@@ -549,6 +553,8 @@ const write=(storage,key,value)=>{try{window[storage].setItem(key,String(value))
 const settings={
   volume:Number(read('localStorage','island-volume',.45)),
   'music-volume':Number(read('localStorage','island-music-volume',.82)),
+  'reduce-motion':read('localStorage','island-reduce-motion','false')==='true',
+  'large-type':read('localStorage','island-large-type','false')==='true',
   sensitivity:Number(read('localStorage','island-sensitivity',1)),
   accessible:read('localStorage','island-accessible','false')==='true',
 };
@@ -580,6 +586,13 @@ ui['color-mode'].addEventListener('change',()=>{
   applyColorMode();
 });
 applyColorMode();
+for(const id of ['reduce-motion','large-type']){
+  const apply=()=>document.documentElement.classList.toggle(id,settings[id]);
+  ui[id].checked=settings[id];apply();
+  ui[id].addEventListener('change',()=>{
+    settings[id]=ui[id].checked;write('localStorage','island-'+id,settings[id]);apply();
+  });
+}
 const audio=createAudio(()=>settings.volume,()=>settings['music-volume']);
 for(const id of ['volume','music-volume','sensitivity']){
   ui[id].value=settings[id];
@@ -604,10 +617,37 @@ const leaves=Array.from({length:24},()=>model(scene,stone,flat('#b9ac65'),0,0,0,
 const aim=new T.Vector3(game.player.pos[0],1,game.player.pos[2]-3);
 const offset=new T.Vector3(0,26,30);
 const keys=new Set();
-const bindings=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
-  'Space','KeyE','KeyQ','Escape','KeyP','ShiftLeft','ShiftRight']);
+const defaultKeys={up:'KeyW',down:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',dash:'ShiftLeft',
+  interact:'KeyE',pulse:'KeyQ',pause:'Escape'};
+const aliases={up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight',dash:'ShiftRight',pause:'KeyP'};
+const actionLabels={up:'Lên',down:'Xuống',left:'Trái',right:'Phải',jump:'Nhảy',dash:'Lướt',
+  interact:'Nạp',pulse:'Tỏa sáng',pause:'Tạm dừng'};
 const actions={jump:false,interact:false,pulse:false,dash:false};
-const keyActions={Space:'jump',KeyE:'interact',KeyQ:'pulse',ShiftLeft:'dash',ShiftRight:'dash'};
+let controls={...defaultKeys};
+let rebind=null;
+try{
+  const saved=JSON.parse(read('localStorage','island-keys','{}'));
+  Object.keys(defaultKeys).forEach(k=>{if(typeof saved[k]==='string')controls[k]=saved[k];});
+  if(new Set(Object.values(controls)).size!==Object.keys(defaultKeys).length)controls={...defaultKeys};
+}catch{}
+const codeLabel=code=>({Escape:'Esc',Space:'Space',ShiftLeft:'Shift trái',ShiftRight:'Shift phải',
+  ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→'})[code]??code.replace(/^(Key|Digit)/,'');
+function actionForCode(code){
+  return Object.keys(controls).find(k=>controls[k]===code)||
+    Object.keys(aliases).find(k=>controls[k]===defaultKeys[k]&&aliases[k]===code);
+}
+function renderControls(){
+  ui['keys-list'].replaceChildren();
+  for(const action of Object.keys(defaultKeys)){
+    const button=document.createElement('button');
+    button.type='button';
+    const label=document.createElement('span'),code=document.createElement('strong');
+    label.textContent=actionLabels[action];code.textContent=rebind===action?'…':codeLabel(controls[action]);
+    button.append(label,code);
+    button.addEventListener('click',()=>{rebind=action;ui['keys-status'].textContent='Bấm phím mới cho '+actionLabels[action]+'.';renderControls();});
+    ui['keys-list'].append(button);
+  }
+}
 const pointer=new T.Raycaster();
 const plane=new T.Plane(new T.Vector3(0,1,0),0);
 let target=null;
@@ -615,12 +655,12 @@ let view=location.hash?'intro':'menu';
 let settingsFrom='menu';
 let yawDeg=0;
 let lastCountdown=11;
-let lastWind=false;
+let lastWind=false,lastSpawn=null,rankEntry=null;
 function show(name) {
   view=name;
   audio.setMusic(name==='playing');
   ui.signature.hidden=name!=='menu';
-  for(const panel of ['menu','intro','breakscreen','settings','ending'])ui[panel].hidden=panel!==name;
+  for(const panel of ['menu','intro','breakscreen','settings','ending','key-panel','rank-panel'])ui[panel].hidden=panel!==name;
   ui.hud.hidden=!['playing','breakscreen','ending'].includes(name);
   keys.clear();
   for(const key of Object.keys(actions))actions[key]=false;
@@ -645,6 +685,7 @@ function reset(scenario={}){
   priorPosition=[...game.player.pos];nextHud=0;accumulator=0;
   aim.set(game.player.pos[0],1,game.player.pos[2]-3);target=null;pulseAge=2;pulseDeniedUntil=0;lastCountdown=11;lastWind=false;
   ui.pause.hidden=false;
+  lastSpawn=null;rankEntry=null;
   show('playing');audio.start();
 }
 ui['intro-night'].textContent='Đêm '+nightNumber+' / 3';
@@ -663,6 +704,59 @@ for(const from of ['menu','pause']){
   ui[from+'-settings'].addEventListener('click',()=>{settingsFrom=from==='pause'?'breakscreen':'menu';show('settings');});
 }
 ui.back.addEventListener('click',()=>show(settingsFrom));
+ui['open-keys'].addEventListener('click',()=>{
+  rebind=null;ui['keys-status'].textContent='';renderControls();show('key-panel');
+});
+ui['keys-back'].addEventListener('click',()=>{rebind=null;show('settings');});
+ui['keys-reset'].addEventListener('click',()=>{
+  controls={...defaultKeys};rebind=null;
+  write('localStorage','island-keys',JSON.stringify(controls));
+  ui['keys-status'].textContent='Đã khôi phục.';renderControls();
+});
+const serverScores=['localhost','127.0.0.1'].includes(location.hostname)&&location.port==='4173';
+const storedScores=()=>{
+  try{return rank(JSON.parse(read('localStorage','island-ranks','[]')));}catch{return [];}
+};
+async function scores(entry){
+  if(serverScores){
+    const response=await fetch('/leaderboard',entry?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(entry)}:{});
+    if(!response.ok)throw new Error('Không đọc được bảng điểm.');
+    return rank((await response.json()).entries);
+  }
+  const rows=entry?rank([...storedScores(),entry]):storedScores();
+  if(entry)write('localStorage','island-ranks',JSON.stringify(rows));
+  return rows;
+}
+ui['menu-rank'].addEventListener('click',async ()=>{
+  try{
+    const rows=await scores();
+    ui['rank-rows'].replaceChildren();
+    rows.forEach((entry,i)=>{
+      const row=document.createElement('tr');
+      for(const value of [i+1,entry.name,entry.score,entry.nights_won]){
+        const col=document.createElement('td');col.textContent=value;row.append(col);
+      }
+      ui['rank-rows'].append(row);
+    });
+    ui['rank-empty'].textContent='Chưa có điểm.';
+    ui['rank-empty'].hidden=rows.length!==0;
+  }catch{
+    ui['rank-rows'].replaceChildren();ui['rank-empty'].hidden=false;
+    ui['rank-empty'].textContent='Không đọc được bảng điểm.';
+  }
+  show('rank-panel');
+});
+ui['rank-back'].addEventListener('click',()=>show('menu'));
+ui['rank-form'].addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!rankEntry)return;
+  const entry={...rankEntry,name:ui['rank-name'].value.trim(),achieved_at:new Date().toISOString()};
+  if(!validScore(entry))return;
+  const button=ui['rank-form'].querySelector('button');
+  button.disabled=true;
+  try{await scores(entry);rankEntry=null;ui['rank-status'].textContent='Đã lưu điểm.';}
+  catch{ui['rank-status'].textContent='Chưa lưu được. Thử lại.';button.disabled=false;}
+});
 ui.play.addEventListener('click',()=>reset());
 ui['test-dawn'].hidden=!practice;
 ui['test-dawn'].addEventListener('click',()=>{
@@ -684,18 +778,30 @@ ui.next.addEventListener('click',()=>{
 });
 show(view);
 addEventListener('keydown',e=>{
-  if(!bindings.has(e.code))return;
-  e.preventDefault();
-  if(e.code==='Escape'||e.code==='KeyP') {
-    if(!e.repeat) togglePause();
-    return;
+  const action=actionForCode(e.code);
+  if(view==='key-panel'&&rebind){
+    if(e.repeat||['Tab','ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight'].includes(e.code))return;
+    e.preventDefault();
+    if(action&&action!==rebind){
+      ui['keys-status'].textContent=codeLabel(e.code)+' đã dùng cho '+actionLabels[action]+'.';
+      return;
+    }
+    controls[rebind]=e.code;
+    write('localStorage','island-keys',JSON.stringify(controls));
+    ui['keys-status'].textContent='Đã lưu phím '+codeLabel(e.code)+'.';
+    rebind=null;renderControls();return;
   }
-  if(view!=='playing') return;
-  keys.add(e.code);
-  if(keyActions[e.code]&&!e.repeat)actions[keyActions[e.code]]=true;
-  if(!keyActions[e.code])target=null;
+  if(!action||!['playing','breakscreen'].includes(view))return;
+  e.preventDefault();
+  if(action==='pause'){if(!e.repeat)togglePause();return;}
+  if(view!=='playing')return;
+  if(Object.hasOwn(actions,action)){
+    if(!e.repeat)actions[action]=true;
+  }else{
+    keys.add(action);target=null;
+  }
 });
-addEventListener('keyup',e=>keys.delete(e.code));
+addEventListener('keyup',e=>{const action=actionForCode(e.code);if(action)keys.delete(action);});
 addEventListener('blur',()=>keys.clear());
 renderer.domElement.addEventListener('pointerdown',e=>{
   if(e.button!==0||view!=='playing'||game.state!=='playing')return;
@@ -726,7 +832,7 @@ function resize(){
 }
 addEventListener('resize',resize);
 resize();
-const key=(a,b)=>Number(keys.has(a)||keys.has(b));
+const key=action=>Number(keys.has(action));
 let previous=performance.now(),accumulator=0,nextFrameAt=0;
 let fpsStart=previous,fpsFrames=0;
 let walking=false;
@@ -873,7 +979,56 @@ function populate(time){
 const drifterMaterial=material('#8FA3B8',{side:T.DoubleSide});
 const shrineLight=new T.PointLight('#ffad68',115,26,2);
 scene.add(shrineLight);
-renderer.setAnimationLoop(now=>{
+function syncShrines(session,time,px,pz){
+  const lit=session.lanterns.filter(l=>l.lit);
+  ambient.intensity=.15+.55*lit.length/session.lanterns.length;
+  for(const [i,l] of session.lanterns.entries()){
+    const s=shrines[i];
+    if(s.lit!==l.lit){
+      s.lit=l.lit;
+      s.pool.visible=l.lit;
+      s.meter.visible=l.lit;
+      s.paper.scale.y=l.lit?1:.8;
+      s.tear.visible=!l.lit;
+      s.heart.material=l.lit?amber:lampDark;
+      s.halo.material.color.set(l.lit?'#FFB347':'#bd77e7');
+      const diameter=l.lit?17:7;
+      s.halo.scale.set(diameter,diameter,1);
+    }
+    s.disk.visible=isSafe(l);
+    const blink=isWeak(l)&&!settings['reduce-motion']?(.29+.71*(.5+.5*Math.cos(time*Math.PI*2))):1;
+    s.halo.material.opacity=l.lit?.94*blink:.14;
+    s.pool.material.opacity=.62*blink;
+    s.heart.scale.x=s.heart.scale.z=l.lit?.80+.20*blink:1;
+    if(l.lit){
+      const ratio=l.fuelUnits/fullFuel;
+      s.meter.quaternion.copy(camera.quaternion);
+      s.fuelBar.scale.x=2.48*ratio;
+      s.fuelBar.position.x=-1.24*(1-ratio);
+      s.fuelBar.material.color.set(isWeak(l)?(settings.accessible?'#FFFFFF':'#FF5A5F'):'#ffe0a0');
+      s.fuelBar.visible=blink>.45;
+    }
+  }
+  let closest=null, closestDistance=Infinity;
+  for(const lantern of lit){
+    const dx=lantern.pos[0]-px,dz=lantern.pos[2]-pz;
+    const distance=dx*dx+dz*dz;
+    if(distance<closestDistance){closest=lantern;closestDistance=distance;}
+  }
+  shrineLight.intensity=closest?115:0;
+  if(closest)shrineLight.position.set(closest.pos[0],closest.pos[1]+3,closest.pos[2]);
+  return lit;
+}
+if(benchmarking){
+  document.querySelector('main').hidden=true;
+  avatar.visible=false;guardianAura.visible=false;carriedLight.intensity=0;
+  model(scene,orb,material('#E8E2D0'),0,.55,0,.37,.64,.37);
+  runBenchmark({renderer,scene,camera,seed:Number(query.get('seed')??42),duration:Number(query.get('duration')??30),
+    moteTexture:haloTexture,dynamic:new Set(shrines.flatMap(s=>[s.heart,...s.tear.children])),beforeDraw(session,time){
+      syncShrines(session,time,0,0);
+      clouds.uniforms.time.value=time;
+    }});
+}else renderer.setAnimationLoop(now=>{
   const rate=view==='playing'?settings.frameLimit:30;
   if(rate){
     const interval=1000/rate;
@@ -890,8 +1045,8 @@ renderer.setAnimationLoop(now=>{
   const running=view==='playing'&&game.state==='playing';
   let time=game.simTick/60;
   accumulator=running?accumulator+dt:0;
-  let x=key('KeyD','ArrowRight')-key('KeyA','ArrowLeft');
-  let z=key('KeyS','ArrowDown')-key('KeyW','ArrowUp');
+  let x=key('right')-key('left');
+  let z=key('down')-key('up');
   let yaw=yawDeg;
   if(target&&!x&&!z){
     x=target.x-game.player.pos[0];z=target.z-game.player.pos[2];
@@ -924,6 +1079,10 @@ renderer.setAnimationLoop(now=>{
         pulseDeniedUntil=0;
         dragons.start(...game.player.pos);
         pulseRing.position.set(game.player.pos[0],game.player.pos[1]+.22,game.player.pos[2]);
+      }
+      if(e.name==='shade_spawned'){
+        const shade=game.shades.find(s=>s.id===e.data.id);
+        if(shade)lastSpawn={pos:[...shade.pos],until:game.simTick+210};
       }
       audio.play(e.name==='game_over'?e.data.result:e.name);
     }
@@ -972,47 +1131,11 @@ renderer.setAnimationLoop(now=>{
   camera.position.copy(aim).addScaledVector(offset,camera.aspect<.74?1.21:1);
   camera.lookAt(aim);
   revealPlayer(now,px,py,pz);
-  const lit=game.lanterns.filter(l=>l.lit);
-  ambient.intensity=.15+.55*lit.length/game.lanterns.length;
-  for(const [i,l] of game.lanterns.entries()){
-    const s=shrines[i];
-    if(s.lit!==l.lit){
-      s.lit=l.lit;
-      s.pool.visible=l.lit;
-      s.meter.visible=l.lit;
-      s.paper.scale.y=l.lit?1:.8;
-      s.tear.visible=!l.lit;
-      s.heart.material=l.lit?amber:lampDark;
-      s.halo.material.color.set(l.lit?'#FFB347':'#bd77e7');
-      const diameter=l.lit?17:7;
-      s.halo.scale.set(diameter,diameter,1);
-    }
-    s.disk.visible=isSafe(l);
-    const blink=isWeak(l)?(.29+.71*(.5+.5*Math.cos(time*Math.PI*2))):1;
-    s.halo.material.opacity=l.lit?.94*blink:.14;
-    s.pool.material.opacity=.62*blink;
-    s.heart.scale.x=s.heart.scale.z=l.lit?.80+.20*blink:1;
-    if(l.lit){
-      const ratio=l.fuelUnits/fullFuel;
-      s.meter.quaternion.copy(camera.quaternion);
-      s.fuelBar.scale.x=2.48*ratio;
-      s.fuelBar.position.x=-1.24*(1-ratio);
-      s.fuelBar.material.color.set(isWeak(l)?(settings.accessible?'#FFFFFF':'#FF5A5F'):'#ffe0a0');
-      s.fuelBar.visible=blink>.45;
-    }
-  }
-  let closest=null, closestDistance=Infinity;
-  for(const lantern of lit){
-    const dx=lantern.pos[0]-px,dz=lantern.pos[2]-pz;
-    const distance=dx*dx+dz*dz;
-    if(distance<closestDistance){closest=lantern;closestDistance=distance;}
-  }
-  shrineLight.intensity=closest?115:0;
-  if(closest)shrineLight.position.set(closest.pos[0],closest.pos[1]+3,closest.pos[2]);
+  const lit=syncShrines(game,time,px,pz);
   populate(time);
   if(running)pulseAge+=dt;
   dragons.update(pulseAge);
-  pulseRing.visible=pulseAge<.80;
+  pulseRing.visible=!settings['reduce-motion']&&pulseAge<.80;
   pulseRing.scale.setScalar(Math.max(.2,Math.min(1,pulseAge/.26)*tuning.pulse_radius));
   pulseRing.material.opacity=Math.max(0,1-pulseAge/.80)*.88;
   if(settings.quality!=='light')clouds.uniforms.time.value=time;
@@ -1031,8 +1154,8 @@ function updateHud(px,py,pz,litCount){
   ui.objective.hidden=!near;
   if(near){
     const prefix=isWeak(near)&&settings.accessible?'⚠ ':'';
-    ui.objective.textContent=prefix+(near.lit?(mobile.matches?'Châm dầu':'E — Châm dầu')+' · '+Math.floor(near.fuelUnits/60)+'%'
-      :(mobile.matches?'Nạp':'E — Nạp ánh sáng')+' ('+near.deposited+'/'+lightCost(near)+')');
+    ui.objective.textContent=prefix+(near.lit?(mobile.matches?'Châm dầu':codeLabel(controls.interact)+' — Châm dầu')+' · '+Math.floor(near.fuelUnits/60)+'%'
+      :(mobile.matches?'Nạp':codeLabel(controls.interact)+' — Nạp ánh sáng')+' ('+near.deposited+'/'+lightCost(near)+')');
   }
   ui.direction.hidden=true;
   if(candidates[0]){
@@ -1075,8 +1198,27 @@ function updateHud(px,py,pz,litCount){
   }
   if(game.wind.warning&&!lastWind)audio.play('wind');
   lastWind=game.wind.warning;
-  ui.wind.hidden=!game.wind.warning&&!game.wind.active;
-  ui.wind.textContent=game.wind.warning?'Gió mạnh sắp tới':'Gió mạnh';
+  const notices=[];
+  const hasSpawn=lastSpawn&&game.simTick<lastSpawn.until;
+  if(hasSpawn)notices.push('Bóng Mực xuất hiện');
+  if(game.wind.warning)notices.push('Gió mạnh sắp tới');
+  else if(game.wind.active)notices.push('Gió mạnh');
+  if(seconds<=10)notices.push('Còn '+seconds+' giây');
+  const low=candidates.filter(isWeak).length;
+  if(low)notices.push(low+' đèn sắp cạn dầu');
+  ui.notice.hidden=!notices.length;
+  ui.notice.textContent=(notices.length&&settings.accessible?'⚠ ':'')+notices.join(' · ');
+  ui['spawn-arrow'].hidden=!hasSpawn;
+  if(hasSpawn){
+    projected.set(lastSpawn.pos[0],lastSpawn.pos[1]+1,lastSpawn.pos[2]).project(camera);
+    const side=projected.z>1?-1:1;
+    const dx=projected.x*side,dy=projected.y*side;
+    const scale=.9/Math.max(Math.abs(dx),Math.abs(dy),.001);
+    const marker=ui['spawn-arrow'];
+    marker.style.left=(50+dx*scale*50)+'%';
+    marker.style.top=(50-dy*scale*50)+'%';
+    marker.style.setProperty('--edge-angle',Math.atan2(dx,dy)*180/Math.PI+'deg');
+  }
   if(game.state!=='playing'){
     const won=game.state==='won';
     const finale=won&&nightNumber===3;
@@ -1084,6 +1226,12 @@ function updateHud(px,py,pz,litCount){
     ui.result.textContent=finale?'Bình Minh':won?island.name+' đã sáng':'Đêm đã khép lại';
     ui.summary.textContent=practice?'Điểm lượt thử · '+game.score:finale?'Tổng điểm · '+(campaignTotal+game.score):'Điểm đêm này · '+game.score;
     ui.restart.hidden=won;ui.next.hidden=!won||finale;
+    const saveable=!practice&&(!won||finale);
+    ui['rank-form'].hidden=!saveable;
+    rankEntry=saveable?{score:campaignTotal+(finale?game.score:0),nights_won:finale?3:nightNumber-1,seed:maps[0].seed}:null;
+    ui['rank-status'].textContent='';
+    ui['rank-name'].value='';
+    ui['rank-form'].querySelector('button').disabled=false;
     ui.pause.hidden=true;
     show('ending');
   }

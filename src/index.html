@@ -47,6 +47,24 @@ label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}inpu
 #wind{position:fixed;top:119px;left:50%;transform:translateX(-50%);color:var(--gold);text-shadow:0 1px 7px #000}
 @media(pointer:coarse){.touch{display:flex;flex-wrap:wrap;max-width:230px}.touch button{padding:7px}}
 @media(max-width:570px){.corner{top:10px;font-size:12px}.left{left:10px}.right,#map,.cooldowns{right:10px}.signature{right:8px;bottom:8px;width:113px;height:58px}.timer{top:9px;font-size:18px}.cooldowns{bottom:calc(clamp(80px,12vw,145px) + 22px);flex-direction:column;gap:3px}#map{bottom:10px}.slot{width:9px}.carry{bottom:18px}}
+
+:root{--ui-size:18px}.large-type{--ui-size:22.5px}
+main :is(button,input,select,label,p,small,.corner b,.cooldowns span,.fps,.settings-grid,.notice,.rank-table,output){font-size:var(--ui-size)}
+main h1,main h2{font-size:clamp(calc(var(--ui-size)*1.9),5.6vw,61px)}
+.corner small{letter-spacing:.04em}
+.panel{max-height:91vh;overflow:auto}
+.settings-grid{column-gap:16px;max-width:440px}
+.panel input[type=text]{pointer-events:auto;width:min(250px,100%);font:inherit;color:var(--paper);background:#101a36;border:1px solid var(--line);padding:8px;border-radius:8px}
+#rank-form{margin:15px 0}#rank-form .buttons{margin:8px 0}
+.rank-table{margin:14px auto;text-align:left;border-collapse:collapse;width:100%}.rank-table th,.rank-table td{padding:4px 8px;border-bottom:1px solid var(--line)}
+#keys-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-block:12px}
+#keys-list button{display:flex;justify-content:space-between;gap:5px;padding:5px 7px}
+#keys-status,#rank-status{display:block;min-height:1.4em;color:var(--gold)}
+.notice{position:fixed;left:50%;top:105px;transform:translateX(-50%);max-width:65vw;text-align:center;background:var(--frame);border:1px solid var(--line);border-radius:8px;padding:4px 12px;color:var(--paper)}
+.edge-alert{position:fixed;color:var(--danger);font-size:24px;line-height:1;text-shadow:0 0 8px #031024;transform:translate(-50%,-50%) rotate(var(--edge-angle))}
+.reduce-motion *,.reduce-motion *::before,.reduce-motion *::after{animation-duration:0s!important;transition-duration:0s!important}
+@media(max-width:830px){:root{--ui-size:14px}.large-type{--ui-size:17.5px}.notice{top:96px}}
+@media(max-width:570px){:root{--ui-size:12px}.large-type{--ui-size:15px}.notice{top:68px}}
 </style>
 <main>
 <div id="hud" hidden>
@@ -56,17 +74,19 @@ label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}inpu
   <div class="carry"><small id="motes"></small><div id="slots"></div></div>
   <div class="cooldowns"><span id="dash-cd"></span><span id="pulse-cd"></span></div>
   <canvas id="map" width="180" height="180" aria-label="Bản đồ"></canvas>
-  <p id="objective" hidden></p><span id="direction" class="pointer" title="Đèn chưa thắp gần nhất" hidden>▲</span><div id="wind" hidden></div>
+  <p id="objective" hidden></p><span id="direction" class="pointer" title="Đèn chưa thắp gần nhất" hidden>▲</span><div id="notice" class="notice" role="status" hidden></div><span id="spawn-arrow" class="edge-alert" aria-label="Hướng Bóng Mực xuất hiện" hidden>▲</span>
   <div class="touch"><button id="jump">Nhảy</button><button id="dash">Lướt</button><button id="interact">Nạp</button><button id="pulse">Tỏa sáng</button></div>
 </div>
-<section id="menu" class="panel" hidden><h1>Đảo Đèn Lồng</h1><div class="buttons"><button id="new-game" class="primary">Bắt đầu</button><button id="menu-settings">Cài đặt</button></div><div class="practices"><p>Thử đảo</p><div class="buttons"><button id="practice-1">Đảo Bến</button><button id="practice-2">Đảo Cau</button><button id="practice-3">Đảo Chuông</button></div></div></section>
+<section id="menu" class="panel" hidden><h1>Đảo Đèn Lồng</h1><div class="buttons"><button id="new-game" class="primary">Bắt đầu</button><button id="menu-rank">Bảng xếp hạng</button><button id="menu-settings">Cài đặt</button></div><div class="practices"><p>Thử đảo</p><div class="buttons"><button id="practice-1">Đảo Bến</button><button id="practice-2">Đảo Cau</button><button id="practice-3">Đảo Chuông</button></div></div></section>
 <section id="intro" class="panel" hidden><p id="intro-night" class="kicker"></p><h2 id="intro-title"></h2><div class="buttons"><button id="play" class="primary">Vào đảo</button><button id="test-dawn" type="button" hidden>Test bình minh</button></div></section>
 <section id="breakscreen" class="panel" hidden><h2>Đang tạm dừng</h2><div class="buttons"><button id="resume" class="primary">Tiếp tục</button><button id="replay">Chơi lại Đêm</button><button id="pause-settings">Cài đặt</button><button id="pause-menu">Về menu</button></div></section>
 <section id="settings" class="panel" hidden><h2>Cài đặt</h2><label>Âm lượng tổng<input id="volume" type="range" min="0" max="1" step=".05"></label><label>Nhạc nền<input id="music-volume" type="range" min="0" max="1" step=".01"></label><label>Độ nhạy chuột<input id="sensitivity" type="range" min=".2" max="2" step=".1"></label><div class="settings-grid">
 <label>Giới hạn FPS<select id="frame-limit"><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option><option value="0">Không giới hạn</option></select></label>
 <label>Chất lượng hình<select id="quality"><option value="light">Nhẹ</option><option value="balanced">Cân bằng</option><option value="sharp">Sắc nét</option></select></label>
-</div><label class="color-setting"><span><input id="color-mode" type="checkbox"> Bảng màu dễ phân biệt</span></label><button id="back">Quay lại</button></section>
-<section id="ending" class="panel" hidden><p id="result-label" class="kicker"></p><h2 id="result"></h2><p id="summary"></p><div class="buttons"><button id="restart" class="primary">Chơi lại đêm</button><button id="next" class="primary">Đêm kế tiếp</button><button id="end-menu">Về menu</button></div></section>
+</div><label class="color-setting"><span><input id="color-mode" type="checkbox"> Bảng màu dễ phân biệt</span></label><label><span><input id="reduce-motion" type="checkbox"> Giảm chuyển động</span></label><label><span><input id="large-type" type="checkbox"> Chữ lớn</span></label><div class="buttons"><button id="open-keys">Đổi phím</button><button id="back">Quay lại</button></div></section>
+<section id="key-panel" class="panel" hidden><h2>Đổi phím</h2><div id="keys-list"></div><output id="keys-status" aria-live="polite"></output><div class="buttons"><button id="keys-reset">Khôi phục mặc định</button><button id="keys-back">Quay lại</button></div></section>
+<section id="rank-panel" class="panel" hidden><h2>Bảng xếp hạng</h2><table class="rank-table"><thead><tr><th>#</th><th>Tên</th><th>Điểm</th><th>Đêm</th></tr></thead><tbody id="rank-rows"></tbody></table><p id="rank-empty" hidden>Chưa có điểm.</p><button id="rank-back">Quay lại</button></section>
+<section id="ending" class="panel" hidden><p id="result-label" class="kicker"></p><h2 id="result"></h2><p id="summary"></p><form id="rank-form" hidden><label>Tên người chơi<input id="rank-name" type="text" minlength="3" maxlength="12" pattern="[A-Za-z0-9_]{3,12}" autocomplete="off" required></label><button type="submit">Lưu điểm</button><output id="rank-status" aria-live="polite"></output></form><div class="buttons"><button id="restart" class="primary">Chơi lại đêm</button><button id="next" class="primary">Đêm kế tiếp</button><button id="end-menu">Về menu</button></div></section>
 <div id="signature" class="signature" hidden aria-label="Chữ ký Hai Anh">
 <svg viewBox="0 0 240 124" role="img" aria-label="Chữ ký Hai Anh">
   <defs>
