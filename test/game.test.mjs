@@ -175,3 +175,15 @@ test('a shade follows a terrace wall rather than stopping at the first blocked s
   assert.ok(Math.abs(g.shades[0].pos[0])>.6);
   assert.equal(g.shades[0].pos[1],0);
 });
+
+test('browser nights start with a larger supply and replenish more often', () => {
+  for(const night of [1,2,3]){
+    const normal=createGame(7,{},night,false,true);
+    const practice=createGame(7,{},night,true,true);
+    assert.equal(normal.motes.length,30);
+    assert.equal(practice.motes.length,36);
+    assert.equal(normal.moteInterval,150);
+    assert.equal(practice.moteInterval,120);
+    assert.equal(createGame(7,{},night).motes.length,20);
+  }
+});

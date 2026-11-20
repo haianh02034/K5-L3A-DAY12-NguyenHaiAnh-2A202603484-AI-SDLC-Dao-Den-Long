@@ -10,7 +10,7 @@ npm run build
 npm start
 ```
 
-Mở http://127.0.0.1:4173 hoặc mở trực tiếp `dist/index.html` trong trình duyệt có WebGL 2. Vào menu, chọn **Bắt đầu** và thắp toàn bộ đèn để mở Đêm kế tiếp. Khi thua, có thể chơi lại Đêm đó. Tag `phase-1` chứa bản Đảo Bến ban đầu. **Thử đảo** hoặc **Qua Đêm nhanh** mở ngay đảo cần kiểm tra, tăng 20% tốc độ chạy và số đom đóm ban đầu; điểm lượt thử không cộng vào chiến dịch. Lăn chuột để thu hoặc mở rộng góc nhìn. Trong Cài đặt, chọn giới hạn FPS và chất lượng hình; HUD hiển thị FPS thực tế. Trong bản chơi, điểm vừa nhặt đom đóm được dùng lại sau ít nhất 18 giây.
+Mở http://127.0.0.1:4173 hoặc mở trực tiếp `dist/index.html` trong trình duyệt có WebGL 2. Vào menu, chọn **Bắt đầu** và thắp toàn bộ đèn để mở Đêm kế tiếp. Khi thua, có thể chơi lại Đêm đó. Tag `phase-1` chứa bản Đảo Bến ban đầu. **Thử đảo** hoặc **Qua Đêm nhanh** mở ngay đảo cần kiểm tra, tăng 20% tốc độ chạy và có 36 đom đóm ban đầu thay vì 30; điểm lượt thử không cộng vào chiến dịch. Lăn chuột để thu hoặc mở rộng góc nhìn. Trong Cài đặt, chọn giới hạn FPS và chất lượng hình; HUD hiển thị FPS thực tế. Trong bản chơi, điểm vừa nhặt đom đóm được dùng lại sau ít nhất 18 giây.
 
 - **WASD / phím mũi tên** để đi, **Space** để nhảy, **Shift** để lướt, **E** để nạp đèn, **Q** để tỏa sáng, **Esc / P** để tạm dừng. Nhấp lên mặt đất để chọn điểm đi, hoặc giữ chuột phải và kéo để xoay camera.
 - Nạp 10 đom đóm cho mỗi đèn. Điểm gồm 10 mỗi đom đóm đã nạp, 100 mỗi đèn, 5 mỗi Bóng Mực trúng Tỏa Sáng. Khi thắng một Đêm, cộng 2 mỗi giây nguyên còn lại và 50 mỗi Ngọn Lửa còn lại. Tổng điểm chỉ cộng các Đêm đã thắng.

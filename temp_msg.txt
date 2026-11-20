@@ -1,1 +1,1 @@
-Simplify game typography and clear the play HUD
+Rebuild dragon effects and add browser performance controls

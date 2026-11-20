@@ -25,20 +25,27 @@ function mint(items,prefix) {
 export function createGame(seed=maps[0].seed, scenario={}, night=1, practice=false, browser=false) {
   const map=maps[night-1], random=seeded(seed);
   const moteSpawns=[...map.moteSpawns];
-  if(practice){
+  if(practice||browser){
     for(const [x,y,z] of map.moteSpawns){
       const next=[x+2.5,y,z+1.5];
       if(surface(night,next[0],next[2])===y)moteSpawns.push(next);
+      if(browser){
+        const extra=[x-3.1,y,z-1.4];
+        if(surface(night,extra[0],extra[2])===y)moteSpawns.push(extra);
+      }
     }
   }
+  const initialMotes=browser?(practice?36:30):(practice?24:20);
+  const moteLimit=browser?(practice?48:42):(practice?36:30);
+  const moteInterval=browser?(practice?120:150):(practice?200:240);
   const placed=[...moteSpawns], locations=[];
-  while(placed.length&&locations.length<(practice?24:20)) locations.push(placed.splice(Math.floor(random()*placed.length),1)[0]);
+  while(placed.length&&locations.length<initialMotes) locations.push(placed.splice(Math.floor(random()*placed.length),1)[0]);
   const p=scenario.player??{};
   const shades=scenario.shades??[], drifters=scenario.drifters??[];
   const nextShade=mint(shades,'S'),nextDrifter=mint(drifters,'D');
   const pos=[...(p.pos??map.spawn??[0,0,0])];
   return {
-    night,map,random,practice,moteSpawns,spotCooldowns:browser?new Map():null,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
+    night,map,random,practice,moteSpawns,moteLimit,moteInterval,spotCooldowns:browser?new Map():null,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
     initialTime:scenario.time_left_s??tuning['night'+night+'_duration_s'],
     player:{pos,vel:[0,0,0],grounded:pos[1]===surface(night,pos[0],pos[2]),flames:p.flames??3,carried:p.carried??0,
       facing:[0,1],invuln:p.invuln_ticks??0,dashCd:p.dash_cd_ticks??0,pulseCd:p.pulse_cd_ticks??0,
@@ -246,7 +253,7 @@ function moveDrifter(g,d) {
 
 function spawn(g,emit) {
   const t=g.simTick;
-  if(g.spawnMotes&&t%(g.practice?200:240)===0&&g.motes.length<(g.practice?36:30)){
+  if(g.spawnMotes&&t%g.moteInterval===0&&g.motes.length<g.moteLimit){
     const empty=g.moteSpawns.filter(pos=>(g.spotCooldowns?.get(pos.join(','))??0)<=t&&
       !g.motes.some(m=>length3(m.pos,pos)<.01));
     if(empty.length)g.motes.push({id:'M'+g.nextMote++,pos:[...randomPick(empty,g.random)],
