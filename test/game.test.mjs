@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { canCross } from '../src/collision.mjs';
+import { slideMovement } from '../src/collision.mjs';
 import { createGame, idleInput, step, tuning } from '../src/game.mjs';
 
 const quiet = { random_motes: false, random_shades: false };
@@ -47,25 +47,27 @@ test('shade damage respects invulnerability and ends on zero flames', () => {
   const g=createGame(9,{...quiet,shades:[{pos:[0,0,0]}]});
   const first=step(g).find(e=>e.name==='player_hit');
   assert.equal(first.data.flames,2);
-  for(let i=0;i<119;i++) assert.equal(step(g).some(e=>e.name==='player_hit'),false);
+  for(let i=0;i<tuning.invuln_s*60-1;i++) assert.equal(step(g).some(e=>e.name==='player_hit'),false);
   assert.equal(step(g).find(e=>e.name==='player_hit').data.flames,1);
-  for(let i=0;i<120;i++) step(g);
+  for(let i=0;i<tuning.invuln_s*60;i++) step(g);
   assert.equal(g.state,'lost');
 });
 
-test('3D movement stops at rocks, clears low rocks in a jump and routes around trunks', () => {
+test('3D movement slides around a head-on trunk and clears a low rock in a jump', () => {
   const g = createGame(9, quiet);
-  const rock = { x: .45, z: 0, radius: .20, clearance: .62 };
-  const trunk = { x: 1.5, z: 0, radius: .35, clearance: Infinity };
-  const canMove = (...movement) => canCross([rock, trunk], ...movement);
+  const trunk = { x: 1, z: 0, radius: .52, clearance: Infinity };
+  const around = (...movement) => slideMovement([trunk], ...movement);
   const right = input({ move: [1, 0] });
-  for (let i = 0; i < 9; i++) step(g, right, canMove);
-  assert.ok(g.player.pos[0] <= .25);
-  step(g, input({ jump: true }), canMove);
-  for (let i = 0; i < 8; i++) step(g, input({}), canMove);
-  for (let i = 0; i < 12; i++) step(g, right, canMove);
-  assert.ok(g.player.pos[0] > .65 && g.player.pos[0] <= 1.15);
-  for (let i = 0; i < 6; i++) step(g, input({ move: [0, 1] }), canMove);
-  for (let i = 0; i < 9; i++) step(g, right, canMove);
-  assert.ok(g.player.pos[0] > 1.85);
+  let furthestSide = 0;
+  for (let i = 0; i < 24; i++) {
+    step(g, right, around);
+    const [x, , z] = g.player.pos;
+    assert.ok(Math.hypot(x - trunk.x, z - trunk.z) >= trunk.radius - 1e-8);
+    furthestSide = Math.max(furthestSide, Math.abs(z));
+  }
+  assert.ok(furthestSide > .48 && g.player.pos[0] > 2);
+  const rock = { x: .5, z: 0, radius: .3, clearance: .6 };
+  const grounded = slideMovement([rock], 0, 0, .4, 0, 0);
+  assert.notDeepEqual(grounded, [.4, 0]);
+  assert.deepEqual(slideMovement([rock], 0, 0, .4, 0, .7), [.4, 0]);
 });

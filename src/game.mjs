@@ -55,7 +55,7 @@ export function createGame(seed = island.seed, scenario = {}) {
 
 export const timeLeft = game => Math.max(0, game.initialTime - game.tick / 60);
 
-export function step(game, input = idleInput, canMove = null) {
+export function step(game, input = idleInput, resolveMovement = null) {
   if (game.state !== 'playing') return [];
   game.tick++;
   const { player, lanterns } = game;
@@ -68,23 +68,19 @@ export function step(game, input = idleInput, canMove = null) {
   const [beforeX, , beforeZ] = player.pos;
   player.pos[0] += (x * Math.cos(yaw) + z * Math.sin(yaw)) * speed;
   player.pos[2] += (-x * Math.sin(yaw) + z * Math.cos(yaw)) * speed;
-  const edge = Math.max(1, Math.hypot(player.pos[0], player.pos[2]) / island.radius);
-  player.pos[0] /= edge;
-  player.pos[2] /= edge;
   if (pressed('jump') && player.pos[1] === 0) game.vertical = 8;
   if (player.pos[1] > 0 || game.vertical > 0) {
     player.pos[1] = Math.max(0, player.pos[1] + game.vertical * tickSeconds);
     game.vertical = player.pos[1] === 0 ? 0 : game.vertical - 23 * tickSeconds;
   }
-  if (canMove && !canMove(beforeX, beforeZ, player.pos[0], player.pos[2], player.pos[1])) {
-    const slideX = canMove(beforeX, beforeZ, player.pos[0], beforeZ, player.pos[1]);
-    if (slideX) player.pos[2] = beforeZ;
-    else if (canMove(beforeX, beforeZ, beforeX, player.pos[2], player.pos[1])) player.pos[0] = beforeX;
-    else {
-      player.pos[0] = beforeX;
-      player.pos[2] = beforeZ;
-    }
+  if (resolveMovement) {
+    const [x, z] = resolveMovement(beforeX, beforeZ, player.pos[0], player.pos[2], player.pos[1]);
+    player.pos[0] = x;
+    player.pos[2] = z;
   }
+  const edge = Math.max(1, Math.hypot(player.pos[0], player.pos[2]) / island.radius);
+  player.pos[0] /= edge;
+  player.pos[2] /= edge;
   for (let i = 0; i < game.motes.length && player.carried < tuning.carry_capacity;) {
     if (distance(player.pos, game.motes[i].pos) > tuning.pickup_radius) {
       i++;
@@ -125,7 +121,7 @@ export function step(game, input = idleInput, canMove = null) {
     game.score += stunned.length * tuning.score.per_stun;
     emit('pulse', { stunned_ids: stunned.map(s => s.id) });
   }
-  if (game.spawnShades && game.tick % 720 === 0 && game.shades.length < 7) {
+  if (game.spawnShades && game.tick >= 1500 && (game.tick - 1500) % 1200 === 0 && game.shades.length < 4) {
     const angle = game.random() * Math.PI * 2;
     const shade = game.makeShade([Math.cos(angle) * 75, 0, Math.sin(angle) * 75]);
     game.shades.push(shade);

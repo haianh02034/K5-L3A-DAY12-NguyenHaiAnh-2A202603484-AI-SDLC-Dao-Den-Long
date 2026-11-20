@@ -4,7 +4,7 @@
 
 - Một đảo tròn có đường kính khoảng 192 m. Biển mây, vách đá, cây và công trình là hình ảnh. Biên đảo giữ người chơi bên trong, nên kịch bản không bị phạt rơi.
 - Người chơi nạp hết số đom đóm cần thiết cho đèn gần nhất bằng một lần nhấn. Có thể nạp nhiều lần khi chưa đủ 7 đom đóm. Chỉ đèn đã thắp tạo vùng an toàn.
-- Bóng Mực sinh mỗi 12 giây trong màn mặc định, tối đa 7. Chạm làm mất một sinh lực, với 2 giây miễn nhiễm sau đòn, và không làm rơi đom đóm. Tỏa sáng tốn 2 đom đóm, đẩy lùi và làm choáng Bóng Mực.
+- Bóng Mực sinh sau 25 giây, sau đó mỗi 20 giây, tối đa 4. Chạm làm mất một sinh lực, với 3,5 giây miễn nhiễm sau đòn, và không làm rơi đom đóm. Tỏa sáng tốn 2 đom đóm, đẩy lùi và làm choáng Bóng Mực.
 - Thắng khi thắp đủ 5 đèn. Hết sinh lực hoặc trời sáng thì thua. Thời lượng một đêm là 7 phút.
 
 ## Kiểm chứng
