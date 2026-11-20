@@ -467,6 +467,7 @@ let lastCountdown=11;
 let lastWind=false;
 function show(name) {
   view=name;
+  ui.signature.hidden=name!=='menu';
   for(const panel of ['menu','intro','breakscreen','settings','ending'])ui[panel].hidden=panel!==name;
   ui.hud.hidden=!['playing','breakscreen','ending'].includes(name);
   keys.clear();
@@ -496,7 +497,6 @@ function reset(){
 }
 ui['intro-night'].textContent='Đêm '+nightNumber+' / 3';
 ui['intro-title'].textContent=island.name;
-ui['intro-words'].textContent='Ông Đăng: “'+island.words+'”';
 ui['night-label'].textContent=(practice?'Thử đảo · ':'Đêm '+nightNumber+' · ')+island.name;
 ui.quick.textContent=nightNumber===3?'Thử lại từ Đảo Bến':'Qua Đêm nhanh';
 for(const number of [1,2,3])ui['practice-'+number].addEventListener('click',()=>go(number,true));

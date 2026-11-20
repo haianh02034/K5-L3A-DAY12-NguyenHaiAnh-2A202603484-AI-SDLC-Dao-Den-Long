@@ -4,10 +4,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Đảo Đèn Lồng</title>
 <style>
-:root{color-scheme:dark;--paper:#F5F1E6;--gold:#F2C14E;--line:#f2c14e46;--frame:#0e1430e8;--danger:#FF5A5F}
-*{box-sizing:border-box}body{margin:0;background:#0E1430;color:var(--paper);font:15px/1.5 system-ui,sans-serif;overflow:hidden}
+:root{color-scheme:dark;--paper:#F5F1E6;--gold:#F2C14E;--line:#f2c14e46;--frame:#0e1430e8;--danger:#FF5A5F;--ui-font:"Segoe UI",Arial,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#0E1430;color:var(--paper);font:15px/1.5 var(--ui-font);overflow:hidden}
 [hidden]{display:none!important}body>canvas{display:block;width:100vw;height:100vh;touch-action:none}main{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 54% 48%,transparent 51%,#0e143084 100%)}
-.corner,.timer,.carry,.cooldowns,.help,.touch,.pointer{position:fixed}.corner{top:22px;padding:9px 14px;border:1px solid var(--line);border-radius:12px;background:var(--frame);font-variant-numeric:tabular-nums}
+.corner,.timer,.carry,.cooldowns,.touch,.pointer{position:fixed}.corner{top:22px;padding:9px 14px;border:1px solid var(--line);border-radius:12px;background:var(--frame);font-variant-numeric:tabular-nums}
 .left{left:22px}.right{right:22px;text-align:right}.corner b{color:var(--gold);font-size:17px}.corner small{display:block;color:var(--paper);opacity:.79}
 .timer{top:19px;left:50%;transform:translateX(-50%);font-size:24px;font-weight:750;padding:4px 13px;background:var(--frame);border-radius:10px;font-variant-numeric:tabular-nums}
 .danger{color:var(--danger);animation:blink .8s infinite alternate}@keyframes blink{to{opacity:.57}}
@@ -16,14 +16,12 @@
 #objective{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);max-width:94vw;text-align:center;margin:0;padding:4px 11px;background:var(--frame);border-radius:8px;font-size:13px}
 .cooldowns{display:flex;gap:8px;right:22px;bottom:19px}.cooldowns span{padding:6px 9px;border-radius:8px;background:var(--frame);border:1px solid var(--line);color:var(--gold);font-size:12px}
 #map{position:fixed;bottom:62px;right:22px;width:clamp(80px,12vw,145px);height:auto}
-.help{bottom:14px;left:50%;transform:translateX(-50%);width:max-content;max-width:94vw;margin:0;text-align:center;background:var(--frame);padding:4px 12px;border-radius:8px;font-size:11px}
 .touch{display:none;bottom:90px;left:12px;gap:5px}.pause,.quick{display:block;margin:7px 0 0 auto;font-size:11px;padding:5px 8px}
-:root{--display:Georgia,"Times New Roman",serif;font-family:Georgia,"Times New Roman",serif}
-body,button{font-family:var(--display)}
-.kicker,.corner small{font-family:system-ui,sans-serif;letter-spacing:.10em;text-transform:uppercase;font-weight:750}
+button{font-family:var(--ui-font)}
+.kicker,.corner small{letter-spacing:.08em;text-transform:uppercase;font-weight:750}
 .right{min-width:113px}
-#map{bottom:122px}
-.cooldowns{bottom:76px}
+#map{bottom:18px}
+.cooldowns{bottom:calc(clamp(80px,12vw,145px) + 28px)}
 .signature{position:fixed;z-index:2;right:15px;bottom:13px;width:118px;height:67px;opacity:.84;pointer-events:none;filter:saturate(.68);color:#e1bc74}
 .signature svg{display:block;width:100%;height:100%}
 .signature .signed{animation:handwrite 5s linear infinite}
@@ -35,13 +33,13 @@ body,button{font-family:var(--display)}
 button{pointer-events:auto;padding:9px 15px;border-radius:8px;background:#172045;color:var(--paper);border:1px solid var(--line);font-weight:700;cursor:pointer}
 .primary{background:var(--gold);color:#111633;border-color:var(--gold)}
 .panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;padding:clamp(22px,6vw,48px);width:min(544px,92vw);border:1px solid var(--line);border-radius:20px;background:var(--frame);box-shadow:0 16px 80px #06091aaa;pointer-events:auto}
-h1,h2{font:600 clamp(34px,5.6vw,65px)/1.04 "Times New Roman",serif;letter-spacing:-.035em;margin:0;color:var(--paper)}
+h1,h2{font:800 clamp(34px,5.6vw,61px)/1.06 var(--ui-font);letter-spacing:-.055em;margin:0;color:var(--paper)}
 .kicker{color:var(--gold);letter-spacing:.18em;font-size:11px;text-transform:uppercase}.buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px}
 label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}input{accent-color:var(--gold)}
 .pointer{left:50%;top:83px;color:var(--gold);font-size:23px;transform:translateX(-50%) rotate(var(--bearing));text-shadow:0 0 12px #ffb347}
 #wind{position:fixed;top:119px;left:50%;transform:translateX(-50%);color:var(--gold);text-shadow:0 1px 7px #000}
-@media(pointer:coarse){.touch{display:flex;flex-wrap:wrap;max-width:230px}.desktop{display:none}.touch button{padding:7px}}
-@media(max-width:570px){.corner{top:10px;font-size:12px}.left{left:10px}.right,#map,.cooldowns{right:10px}.signature{right:8px;bottom:8px;width:88px;height:50px}.timer{top:9px;font-size:18px}.cooldowns{bottom:64px;flex-direction:column;gap:3px}#map{bottom:142px}.slot{width:9px}.carry{bottom:39px}.help{font-size:9px}}
+@media(pointer:coarse){.touch{display:flex;flex-wrap:wrap;max-width:230px}.touch button{padding:7px}}
+@media(max-width:570px){.corner{top:10px;font-size:12px}.left{left:10px}.right,#map,.cooldowns{right:10px}.signature{right:8px;bottom:8px;width:88px;height:50px}.timer{top:9px;font-size:18px}.cooldowns{bottom:calc(clamp(80px,12vw,145px) + 22px);flex-direction:column;gap:3px}#map{bottom:10px}.slot{width:9px}.carry{bottom:18px}}
 </style>
 <main>
 <div id="hud" hidden>
@@ -52,15 +50,14 @@ label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}inpu
   <div class="cooldowns"><span id="dash-cd"></span><span id="pulse-cd"></span></div>
   <canvas id="map" width="180" height="180" aria-label="Bản đồ"></canvas>
   <p id="objective" hidden></p><span id="direction" class="pointer" title="Đèn chưa thắp gần nhất" hidden>▲</span><div id="wind" hidden></div>
-  <p class="help desktop">WASD · Space nhảy · Shift lướt · E nạp · Q tỏa sáng · Esc/P tạm dừng</p>
   <div class="touch"><button id="jump">Nhảy</button><button id="dash">Lướt</button><button id="interact">Nạp</button><button id="pulse">Tỏa sáng</button></div>
 </div>
-<section id="menu" class="panel" hidden><p class="kicker">Ba hòn đảo</p><h1>Đảo Đèn Lồng</h1><p>Giúp Mây mang ánh sáng trở về trước bình minh.</p><div class="buttons"><button id="new-game" class="primary">Bắt đầu</button><button id="menu-settings">Cài đặt</button></div><div class="practices"><p>Thử đảo · chạy và đom đóm +20%</p><div class="buttons"><button id="practice-1">Đảo Bến</button><button id="practice-2">Đảo Cau</button><button id="practice-3">Đảo Chuông</button></div></div></section>
-<section id="intro" class="panel" hidden><p id="intro-night" class="kicker"></p><h2 id="intro-title"></h2><p id="intro-words"></p><button id="play" class="primary">Vào đảo</button></section>
+<section id="menu" class="panel" hidden><h1>Đảo Đèn Lồng</h1><div class="buttons"><button id="new-game" class="primary">Bắt đầu</button><button id="menu-settings">Cài đặt</button></div><div class="practices"><p>Thử đảo</p><div class="buttons"><button id="practice-1">Đảo Bến</button><button id="practice-2">Đảo Cau</button><button id="practice-3">Đảo Chuông</button></div></div></section>
+<section id="intro" class="panel" hidden><p id="intro-night" class="kicker"></p><h2 id="intro-title"></h2><div class="buttons"><button id="play" class="primary">Vào đảo</button></div></section>
 <section id="breakscreen" class="panel" hidden><h2>Đang tạm dừng</h2><div class="buttons"><button id="resume" class="primary">Tiếp tục</button><button id="replay">Chơi lại Đêm</button><button id="pause-settings">Cài đặt</button><button id="pause-menu">Về menu</button></div></section>
 <section id="settings" class="panel" hidden><h2>Cài đặt</h2><label>Âm lượng<input id="volume" type="range" min="0" max="1" step=".05"></label><label>Độ nhạy chuột<input id="sensitivity" type="range" min=".2" max="2" step=".1"></label><button id="back">Quay lại</button></section>
 <section id="ending" class="panel" hidden><p id="result-label" class="kicker"></p><h2 id="result"></h2><p id="summary"></p><div class="buttons"><button id="restart" class="primary">Chơi lại đêm</button><button id="next" class="primary">Đêm kế tiếp</button><button id="end-menu">Về menu</button></div></section>
-<div class="signature" aria-label="Thiết kế và sản xuất bởi Hoàng">
+<div id="signature" class="signature" hidden aria-label="Thiết kế và sản xuất bởi Hoàng">
 <svg viewBox="0 0 220 132" role="img" aria-label="Chữ ký Hoàng">
   <defs>
     <linearGradient id="signature-gold" x2="100%" y2="100%">
@@ -71,7 +68,7 @@ label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}inpu
     </linearGradient>
   </defs>
   <rect x="3" y="4" width="214" height="124" rx="7" fill="url(#signature-dark)" stroke="#928053" stroke-width="1.2"/>
-  <text x="110" y="24" fill="#e1bc74" text-anchor="middle" font-family="Georgia,serif" font-weight="bold" letter-spacing="2" font-size="10">THIẾT KẾ &amp; SẢN XUẤT</text>
+  <text x="110" y="24" fill="#e1bc74" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-weight="bold" letter-spacing="2" font-size="10">THIẾT KẾ &amp; SẢN XUẤT</text>
   <path d="M15 13l1.8 4.1 4.1 1.8-4.1 1.8-1.8 4.1-1.8-4.1-4.1-1.8 4.1-1.8zm190 0l1.8 4.1 4.1 1.8-4.1 1.8-1.8 4.1-1.8-4.1-4.1-1.8 4.1-1.8z" fill="#977c4b"/>
   <g class="signed" fill="url(#signature-gold)">
     <path d="M34 62C42 70 70 54 95 42s1 19-13 37m-6 37C113 99 149 83 189 81" fill="none" stroke="url(#signature-gold)" stroke-linecap="round" stroke-width="1.6"/>
