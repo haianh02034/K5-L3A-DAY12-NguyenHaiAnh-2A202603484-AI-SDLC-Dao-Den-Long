@@ -152,3 +152,26 @@ test('browser movement follows a terrace when the player holds forward into its 
   assert.ok(Math.abs(g.player.pos[0])>.5);
   assert.equal(g.player.pos[1],0);
 });
+
+test('the browser waits 18 s before reusing a collected spot without changing headless respawns', () => {
+  const scenario={random_shades:false,motes:[[0,0,0]]};
+  for(const browser of [false,true]){
+    const g=createGame(4,scenario,1,false,browser);
+    g.moteSpawns=[[0,0,0]];
+    assert.equal(step(g)[0].name,'mote_picked');
+    g.player.pos=[8,0,0];
+    for(let i=1;i<240;i++)step(g);
+    assert.equal(g.motes.length,browser?0:1);
+    if(browser){
+      for(let i=240;i<1200;i++)step(g);
+      assert.equal(g.motes.length,1);
+    }
+  }
+});
+
+test('a shade follows a terrace wall rather than stopping at the first blocked step', () => {
+  const g=createGame(3,{...quiet,player:{pos:[0,3,20]},shades:[{pos:[0,0,24.4]}]},3);
+  for(let i=0;i<30;i++)step(g);
+  assert.ok(Math.abs(g.shades[0].pos[0])>.6);
+  assert.equal(g.shades[0].pos[1],0);
+});

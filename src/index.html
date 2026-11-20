@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Đảo Đèn Lồng</title>
 <style>
-:root{color-scheme:dark;--paper:#F5F1E6;--gold:#F2C14E;--line:#f2c14e46;--frame:#0e1430e8;--danger:#FF5A5F;--ui-font:"Segoe UI",Arial,sans-serif}
+:root{color-scheme:dark;--paper:#F5F1E6;--gold:#F2C14E;--line:#f2c14e46;--frame:#0e1430e8;--danger:#FF5A5F;--ui-font:"Segoe Print","Bradley Hand","Comic Sans MS",cursive}
 *{box-sizing:border-box}body{margin:0;background:#0E1430;color:var(--paper);font:15px/1.5 var(--ui-font);overflow:hidden}
 [hidden]{display:none!important}body>canvas{display:block;width:100vw;height:100vh;touch-action:none}main{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 54% 48%,transparent 51%,#0e143084 100%)}
 .corner,.timer,.carry,.cooldowns,.touch,.pointer{position:fixed}.corner{top:22px;padding:9px 14px;border:1px solid var(--line);border-radius:12px;background:var(--frame);font-variant-numeric:tabular-nums}
@@ -22,18 +22,25 @@ button{font-family:var(--ui-font)}
 .right{min-width:113px}
 #map{bottom:18px}
 .cooldowns{bottom:calc(clamp(80px,12vw,145px) + 28px)}
-.signature{position:fixed;z-index:2;right:15px;bottom:13px;width:118px;height:67px;opacity:.84;pointer-events:none;filter:saturate(.68);color:#e1bc74}
+.signature{position:fixed;z-index:2;right:18px;bottom:17px;width:113px;height:64px;opacity:.9;pointer-events:none}
+.fps{position:fixed;top:66px;left:50%;transform:translateX(-50%);font:700 11px/1.2 monospace;color:#f8df9e;background:#0e1430bf;border:1px solid var(--line);padding:3px 7px;border-radius:6px}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 auto 12px;max-width:360px}
+.settings-grid label{margin:5px 0}
+select{width:100%;font:inherit;background:#172045;color:var(--paper);border:1px solid var(--line);border-radius:8px;padding:5px}
+@media(max-width:570px){.fps{top:45px}}
 .signature svg{display:block;width:100%;height:100%}
-.signature .signed{animation:handwrite 5s linear infinite}
-@keyframes handwrite{0%{clip-path:inset(0 100% 0 0)}40%,100%{clip-path:inset(0)}}
-@media(prefers-reduced-motion:reduce){.signature .signed{animation:none}}
+.signature .signed path{stroke-dasharray:1;animation:handwrite 5s linear infinite}
+.signature .signed .finish{animation-name:finish-signature}
+@keyframes handwrite{0%{stroke-dashoffset:1}33%,100%{stroke-dashoffset:0}}
+@keyframes finish-signature{0%,25%{stroke-dashoffset:1}40%,100%{stroke-dashoffset:0}}
+@media(prefers-reduced-motion:reduce){.signature .signed path{animation:none;stroke-dashoffset:0}}
 .practices{border-top:1px solid var(--line);padding-top:12px;margin-top:18px}
 .practices p{margin:0 0 7px;color:#e6cc95}
 .practices .buttons{margin-top:0}
 button{pointer-events:auto;padding:9px 15px;border-radius:8px;background:#172045;color:var(--paper);border:1px solid var(--line);font-weight:700;cursor:pointer}
 .primary{background:var(--gold);color:#111633;border-color:var(--gold)}
 .panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;padding:clamp(22px,6vw,48px);width:min(544px,92vw);border:1px solid var(--line);border-radius:20px;background:var(--frame);box-shadow:0 16px 80px #06091aaa;pointer-events:auto}
-h1,h2{font:800 clamp(34px,5.6vw,61px)/1.06 var(--ui-font);letter-spacing:-.055em;margin:0;color:var(--paper)}
+h1,h2{font:800 clamp(34px,5.6vw,61px)/1.06 var(--ui-font);letter-spacing:-.075em;margin:0;color:var(--paper)}
 .kicker{color:var(--gold);letter-spacing:.18em;font-size:11px;text-transform:uppercase}.buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px}
 label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}input{accent-color:var(--gold)}
 .pointer{left:50%;top:83px;color:var(--gold);font-size:23px;transform:translateX(-50%) rotate(var(--bearing));text-shadow:0 0 12px #ffb347}
@@ -44,7 +51,7 @@ label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}inpu
 <main>
 <div id="hud" hidden>
   <div class="corner left"><small id="night-label"></small><b id="flames"></b><small>Ngọn Lửa</small></div>
-  <div class="timer" id="time">5:00</div>
+  <div class="timer" id="time">5:00</div><span id="fps" class="fps">— FPS</span>
   <div class="corner right"><b id="lights"></b><small>Đèn đã thắp</small><b id="score"></b><small>Điểm</small><button id="pause" class="pause" type="button">Tạm dừng</button><button id="quick" class="quick" type="button">Qua Đêm nhanh</button></div>
   <div class="carry"><small id="motes"></small><div id="slots"></div></div>
   <div class="cooldowns"><span id="dash-cd"></span><span id="pulse-cd"></span></div>
@@ -55,26 +62,18 @@ label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}inpu
 <section id="menu" class="panel" hidden><h1>Đảo Đèn Lồng</h1><div class="buttons"><button id="new-game" class="primary">Bắt đầu</button><button id="menu-settings">Cài đặt</button></div><div class="practices"><p>Thử đảo</p><div class="buttons"><button id="practice-1">Đảo Bến</button><button id="practice-2">Đảo Cau</button><button id="practice-3">Đảo Chuông</button></div></div></section>
 <section id="intro" class="panel" hidden><p id="intro-night" class="kicker"></p><h2 id="intro-title"></h2><div class="buttons"><button id="play" class="primary">Vào đảo</button></div></section>
 <section id="breakscreen" class="panel" hidden><h2>Đang tạm dừng</h2><div class="buttons"><button id="resume" class="primary">Tiếp tục</button><button id="replay">Chơi lại Đêm</button><button id="pause-settings">Cài đặt</button><button id="pause-menu">Về menu</button></div></section>
-<section id="settings" class="panel" hidden><h2>Cài đặt</h2><label>Âm lượng<input id="volume" type="range" min="0" max="1" step=".05"></label><label>Độ nhạy chuột<input id="sensitivity" type="range" min=".2" max="2" step=".1"></label><button id="back">Quay lại</button></section>
+<section id="settings" class="panel" hidden><h2>Cài đặt</h2><label>Âm lượng<input id="volume" type="range" min="0" max="1" step=".05"></label><label>Độ nhạy chuột<input id="sensitivity" type="range" min=".2" max="2" step=".1"></label><div class="settings-grid">
+<label>Giới hạn FPS<select id="frame-limit"><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option><option value="0">Không giới hạn</option></select></label>
+<label>Chất lượng hình<select id="quality"><option value="light">Nhẹ</option><option value="balanced">Cân bằng</option><option value="sharp">Sắc nét</option></select></label>
+</div><button id="back">Quay lại</button></section>
 <section id="ending" class="panel" hidden><p id="result-label" class="kicker"></p><h2 id="result"></h2><p id="summary"></p><div class="buttons"><button id="restart" class="primary">Chơi lại đêm</button><button id="next" class="primary">Đêm kế tiếp</button><button id="end-menu">Về menu</button></div></section>
-<div id="signature" class="signature" hidden aria-label="Thiết kế và sản xuất bởi Hoàng">
-<svg viewBox="0 0 220 132" role="img" aria-label="Chữ ký Hoàng">
-  <defs>
-    <linearGradient id="signature-gold" x2="100%" y2="100%">
-      <stop stop-color="#a88950"/><stop offset=".44" stop-color="#f0d69e"/><stop offset="1" stop-color="#94723d"/>
-    </linearGradient>
-    <linearGradient id="signature-dark" x2="100%" y2="100%">
-      <stop stop-color="#14141f"/><stop offset="1" stop-color="#22202b"/>
-    </linearGradient>
-  </defs>
-  <rect x="3" y="4" width="214" height="124" rx="7" fill="url(#signature-dark)" stroke="#928053" stroke-width="1.2"/>
-  <text x="110" y="24" fill="#e1bc74" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-weight="bold" letter-spacing="2" font-size="10">THIẾT KẾ &amp; SẢN XUẤT</text>
-  <path d="M15 13l1.8 4.1 4.1 1.8-4.1 1.8-1.8 4.1-1.8-4.1-4.1-1.8 4.1-1.8zm190 0l1.8 4.1 4.1 1.8-4.1 1.8-1.8 4.1-1.8-4.1-4.1-1.8 4.1-1.8z" fill="#977c4b"/>
-  <g class="signed" fill="url(#signature-gold)">
-    <path d="M34 62C42 70 70 54 95 42s1 19-13 37m-6 37C113 99 149 83 189 81" fill="none" stroke="url(#signature-gold)" stroke-linecap="round" stroke-width="1.6"/>
-    <text x="77" y="87" transform="rotate(-16 77 87)" font-family="'Segoe Script','Brush Script MT',cursive" font-size="39" font-style="italic" letter-spacing="-2">Hoàng</text>
-    <path d="M181 24l3.2 6.6 7.1 3.3-7.1 3.3-3.2 6.8-3.1-6.8-7.2-3.3 7.2-3.3z" fill="#e5c985"/>
-  </g>
+<div id="signature" class="signature" hidden aria-label="Chữ ký Hai Anh">
+<svg viewBox="0 0 220 128" role="img" aria-label="Chữ ký Hai Anh">
+ <rect x="2" y="2" width="216" height="124" rx="4" fill="#e5e1d8"/>
+ <g class="signed" fill="none" stroke="#23211f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+  <path pathLength="1" d="M83 70C62 72 67 52 81 42C96 31 114 26 111 39C109 53 87 96 78 109C83 92 98 57 108 44M119 32C114 55 102 79 89 99M83 70C95 64 109 64 124 57"/>
+  <path class="finish" pathLength="1" d="M95 79C103 67 112 66 111 72C110 79 102 85 99 80C96 77 102 75 111 74C117 65 127 65 125 72L119 80C123 81 130 73 135 67L131 80C138 70 144 66 144 72C143 76 141 78 144 78C151 74 163 61 161 68L150 88C144 101 140 98 144 90C150 79 160 76 172 71"/>
+ </g>
 </svg>
 </div>
 </main>

@@ -22,7 +22,7 @@ function mint(items,prefix) {
   return ()=>{while(used.has(prefix+n))n++;return prefix+n++;};
 }
 
-export function createGame(seed=maps[0].seed, scenario={}, night=1, practice=false) {
+export function createGame(seed=maps[0].seed, scenario={}, night=1, practice=false, browser=false) {
   const map=maps[night-1], random=seeded(seed);
   const moteSpawns=[...map.moteSpawns];
   if(practice){
@@ -38,7 +38,7 @@ export function createGame(seed=maps[0].seed, scenario={}, night=1, practice=fal
   const nextShade=mint(shades,'S'),nextDrifter=mint(drifters,'D');
   const pos=[...(p.pos??map.spawn??[0,0,0])];
   return {
-    night,map,random,practice,moteSpawns,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
+    night,map,random,practice,moteSpawns,spotCooldowns:browser?new Map():null,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
     initialTime:scenario.time_left_s??tuning['night'+night+'_duration_s'],
     player:{pos,vel:[0,0,0],grounded:pos[1]===surface(night,pos[0],pos[2]),flames:p.flames??3,carried:p.carried??0,
       facing:[0,1],invuln:p.invuln_ticks??0,dashCd:p.dash_cd_ticks??0,pulseCd:p.pulse_cd_ticks??0,
@@ -153,7 +153,7 @@ function drop(g,count,pos,ring) {
   }
 }
 
-function driveShade(g,s,lit) {
+function driveShade(g,s,lit,resolve) {
   const p=g.player.pos;
   const ward=lit.find(l=>distance(l.pos,s.pos)<6-1e-9&&Math.abs(l.pos[1]-s.pos[1])<=1.5);
   if(ward&&!s.ward)s.ward={lantern:ward,ticks:30};
@@ -177,7 +177,8 @@ function driveShade(g,s,lit) {
   }else{
     const d=distance(p,s.pos);
     const speed=(g.night===3?4.5:4)/hz;
-    if(d<=12||(s.state==='chase'&&d<=18)){
+    const notice=g.practice?21:12, leash=g.practice?29:18;
+    if(d<=notice||(s.state==='chase'&&d<=leash)){
       s.state='chase';
       [dx,dz]=d?unit(p[0]-s.pos[0],p[2]-s.pos[2]).map(v=>v*Math.min(speed,d)):[0,0];
     }else{
@@ -186,12 +187,30 @@ function driveShade(g,s,lit) {
       dx=Math.cos(g.simTick/139+a)*speed*.40;dz=Math.sin(g.simTick/139+a)*speed*.40;
     }
   }
-  const nx=s.pos[0]+dx,nz=s.pos[2]+dz;
-  const floor=surface(g.night,nx,nz);
   const currentFloor=surface(g.night,s.pos[0],s.pos[2]);
-  const terrainBlocks=!Number.isFinite(floor)||(Number.isFinite(currentFloor)&&Math.abs(floor-currentFloor)>.65)||
-    (g.night===3&&floor===6&&Math.hypot(nx,nz)<2);
-  const angleWard=lit.find(l=>Math.abs(l.pos[1]-s.pos[1])<=1.5&&Math.hypot(l.pos[0]-nx,l.pos[2]-nz)<6-1e-9);
+  const groundBlocks=(x,z,floor)=>!Number.isFinite(floor)||
+    (Number.isFinite(currentFloor)&&Math.abs(floor-currentFloor)>.65)||
+    (g.night===3&&floor===6&&Math.hypot(x,z)<2);
+  const wardAt=(x,z)=>lit.find(l=>Math.abs(l.pos[1]-s.pos[1])<=1.5&&Math.hypot(l.pos[0]-x,l.pos[2]-z)<6-1e-9);
+  const walking=s.state==='chase'||s.state==='wander';
+  let nx=s.pos[0]+dx,nz=s.pos[2]+dz;
+  if(walking&&resolve)[nx,nz]=resolve(s.pos[0],s.pos[2],nx,nz,0);
+  let floor=surface(g.night,nx,nz);
+  let terrainBlocks=groundBlocks(nx,nz,floor);
+  if(walking&&(terrainBlocks||(nx===s.pos[0]&&nz===s.pos[2]))&&(dx||dz)){
+    const sign=s.steerSide??1;
+    for(const turn of [.55,1.05,1.58,2.08,-.55,-1.05,-1.58,-2.08]){
+      const bend=turn*sign;
+      const x=s.pos[0]+dx*Math.cos(bend)-dz*Math.sin(bend);
+      const z=s.pos[2]+dx*Math.sin(bend)+dz*Math.cos(bend);
+      const [tx,tz]=resolve?resolve(s.pos[0],s.pos[2],x,z,0):[x,z];
+      const level=surface(g.night,tx,tz);
+      if((tx!==s.pos[0]||tz!==s.pos[2])&&!groundBlocks(tx,tz,level)&&!wardAt(tx,tz)){
+        nx=tx;nz=tz;floor=level;terrainBlocks=false;s.steerSide=Math.sign(bend);break;
+      }
+    }
+  }
+  const angleWard=wardAt(nx,nz);
   if(!terrainBlocks&&!angleWard){
     s.pos[0]=nx;s.pos[2]=nz;
     if(Number.isFinite(currentFloor)&&Math.abs(s.pos[1]-currentFloor)<.66)s.pos[1]+=floor-currentFloor;
@@ -228,7 +247,8 @@ function moveDrifter(g,d) {
 function spawn(g,emit) {
   const t=g.simTick;
   if(g.spawnMotes&&t%(g.practice?200:240)===0&&g.motes.length<(g.practice?36:30)){
-    const empty=g.moteSpawns.filter(pos=>!g.motes.some(m=>length3(m.pos,pos)<.01));
+    const empty=g.moteSpawns.filter(pos=>(g.spotCooldowns?.get(pos.join(','))??0)<=t&&
+      !g.motes.some(m=>length3(m.pos,pos)<.01));
     if(empty.length)g.motes.push({id:'M'+g.nextMote++,pos:[...randomPick(empty,g.random)],
       kind:'random',ttl:null,available:t+1});
   }
@@ -276,6 +296,7 @@ export function step(g,input=idleInput,resolve=null){
   if(!p.fall&&p.flames>0){
     g.motes=g.motes.filter(m=>{
       if(p.carried>=10||m.available>g.simTick||!inReach(m.pos,p.pos,1))return true;
+      if(g.spotCooldowns&&m.kind==='random')g.spotCooldowns.set(m.pos.join(','),g.simTick+18*hz);
       emit('mote_picked',{carried:++p.carried});return false;
     });
     for(const c of g.charms){
@@ -314,7 +335,7 @@ export function step(g,input=idleInput,resolve=null){
       }
     }
   }
-  const dangerous=g.shades.filter(s=>driveShade(g,s,lit)).sort(byId);
+  const dangerous=g.shades.filter(s=>driveShade(g,s,lit,resolve)).sort(byId);
   for(const d of g.drifters)moveDrifter(g,d);
   if(!p.fall&&p.flames>0){
     for(const d of g.drifters){

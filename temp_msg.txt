@@ -1,1 +1,1 @@
-Polish Phase 2 and add quick island practice
+Simplify game typography and clear the play HUD

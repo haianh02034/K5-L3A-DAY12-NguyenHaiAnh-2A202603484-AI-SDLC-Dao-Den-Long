@@ -19,12 +19,11 @@ const camera = new T.PerspectiveCamera(42, 1, 0.1, 550);
 const ui = Object.fromEntries([...document.querySelectorAll('[id]')].map(e => [e.id, e]));
 let renderer;
 try {
-  renderer = new T.WebGLRenderer({ antialias: true });
+  renderer = new T.WebGLRenderer({ powerPreference:'high-performance', antialias:false });
 } catch (error) {
   ui.objective.textContent = 'Trình duyệt cần WebGL 2 để mở game.';
   throw error;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.15));
 renderer.toneMapping = T.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.39;
 document.body.prepend(renderer.domElement);
@@ -146,7 +145,9 @@ const clouds = new T.ShaderMaterial({
   gl_FragColor=vec4(mix(vec3(.071,.220,.290),vec3(.22,.35,.48),smoothstep(.31,.77,n)*(.81-rim*.36)),1.);
   }`
 });
-model(scene,new T.PlaneGeometry(650,650),clouds,0,-12,0).rotation.x = -Math.PI / 2;
+const cloudPlane=model(scene,new T.PlaneGeometry(650,650),clouds,0,-12,0);
+cloudPlane.rotation.x=-Math.PI/2;
+const flatClouds=flat('#12384A');
 for (let i=0;i<34;i++) {
   const a=random()*Math.PI*2, r=106+random()*72;
   sprite(scene,Math.cos(a)*r,1+random()*7,Math.sin(a)*r,29+random()*38,8+random()*13,'#a2aacd',.24,false);
@@ -430,6 +431,23 @@ const settings={
   volume:Number(read('localStorage','island-volume',.45)),
   sensitivity:Number(read('localStorage','island-sensitivity',1)),
 };
+const qualities={light:.65,balanced:.85,sharp:1.12};
+const savedQuality=read('localStorage','island-quality','balanced');
+settings.quality=Object.hasOwn(qualities,savedQuality)?savedQuality:'balanced';
+const savedLimit=Number(read('localStorage','island-frame-limit',60));
+settings.frameLimit=[0,30,60,120].includes(savedLimit)?savedLimit:60;
+ui.quality.value=settings.quality;
+ui['frame-limit'].value=settings.frameLimit;
+ui.quality.addEventListener('change',()=>{
+  settings.quality=ui.quality.value;
+  write('localStorage','island-quality',settings.quality);
+  resize();
+});
+ui['frame-limit'].addEventListener('change',()=>{
+  settings.frameLimit=Number(ui['frame-limit'].value);
+  write('localStorage','island-frame-limit',settings.frameLimit);
+  nextFrameAt=0;
+});
 const audio=createAudio(()=>settings.volume);
 for(const id of ['volume','sensitivity']){
   ui[id].value=settings[id];
@@ -437,7 +455,7 @@ for(const id of ['volume','sensitivity']){
     settings[id]=Number(ui[id].value);write('localStorage','island-'+id,settings[id]);
   });
 }
-let game=createGame(island.seed,{},nightNumber,practice);
+let game=createGame(island.seed,{},nightNumber,practice,true);
 const campaignTotal=nightNumber===1||practice?0:Number(read('sessionStorage','island-score',0));
 let moteScenes=new Map(), shadeScenes=new Map();
 const drifterScenes=new Map();
@@ -489,7 +507,7 @@ function reset(){
   for(const s of shadeScenes.values())scene.remove(s.g);
   for(const d of drifterScenes.values())scene.remove(d);
   drifterScenes.clear();moteScenes=new Map();shadeScenes=new Map();
-  game=createGame(island.seed,{},nightNumber,practice);
+  game=createGame(island.seed,{},nightNumber,practice,true);
   priorPosition=[...game.player.pos];nextHud=0;accumulator=0;
   aim.set(game.player.pos[0],0,game.player.pos[2]+3);target=null;pulseAge=2;lastCountdown=11;lastWind=false;
   ui.pause.hidden=false;
@@ -560,13 +578,16 @@ for(const [id,key] of [['jump','jump'],['interact','interact'],['pulse','pulse']
 
 function resize(){
   camera.aspect=innerWidth/innerHeight;
+  cloudPlane.material=settings.quality==='light'?flatClouds:clouds;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.3)*qualities[settings.quality]);
   renderer.setSize(innerWidth,innerHeight);
   camera.updateProjectionMatrix();
 }
 addEventListener('resize',resize);
 resize();
 const key=(a,b)=>Number(keys.has(a)||keys.has(b));
-let previous=performance.now(),accumulator=0;
+let previous=performance.now(),accumulator=0,nextFrameAt=0;
+let fpsStart=previous,fpsFrames=0;
 let walking=false;
 const nav=ui.map.getContext('2d');
 const mapPaths=paths.map(path=>path.getPoints(16));
@@ -666,7 +687,18 @@ const drifterMaterial=material('#8FA3B8',{side:T.DoubleSide});
 const shrineLight=new T.PointLight('#ffad68',115,26,2);
 scene.add(shrineLight);
 renderer.setAnimationLoop(now=>{
-  const dt=Math.min(Math.max(0,(now-previous)/1000),.067);
+  const rate=view==='playing'?settings.frameLimit:30;
+  if(rate){
+    const interval=1000/rate;
+    if(now+1.2<nextFrameAt)return;
+    nextFrameAt=Math.max(now-interval,nextFrameAt)+interval;
+  }else nextFrameAt=0;
+  fpsFrames++;
+  if(now-fpsStart>=750){
+    ui.fps.textContent=Math.round(fpsFrames*1000/(now-fpsStart))+' FPS';
+    fpsFrames=0;fpsStart=now;
+  }
+  const dt=Math.min(Math.max(0,(now-previous)/1000),.15);
   previous=now;
   const running=view==='playing'&&game.state==='playing';
   let time=game.simTick/60;
@@ -761,7 +793,7 @@ renderer.setAnimationLoop(now=>{
   pulseRing.position.set(px,py+.42,pz);
   pulseRing.scale.setScalar(Math.max(.2,pulseAge/.65*tuning.pulse_radius));
   pulseRing.material.opacity=Math.max(0,1-pulseAge/.65);
-  clouds.uniforms.time.value=time;
+  if(settings.quality!=='light')clouds.uniforms.time.value=time;
   if(view==='playing'&&(now>=nextHud || game.state!=='playing')){
     nextHud=now+100;
     updateHud(px,py,pz,lit.length);
