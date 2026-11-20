@@ -53,6 +53,9 @@ scene.add(moon);
 const fill=new T.DirectionalLight('#dbdefe',.52);
 fill.position.set(9,24,-30);
 scene.add(fill);
+const reflectedLight=new T.DirectionalLight('#b9b5ea',.67);
+reflectedLight.position.set(13,8,26);
+scene.add(reflectedLight);
 
 function model(parent, shape, surface, x, y, z, sx = 1, sy = sx, sz = sx) {
   const mesh = new T.Mesh(shape, surface);
@@ -85,7 +88,28 @@ function height(x,z) {
   const y=floor(x,z);
   return Number.isFinite(y)?y:0;
 }
-const turf=material('#2F5D50');
+const turfCanvas=document.createElement('canvas');
+turfCanvas.width=turfCanvas.height=192;
+const turfContext=turfCanvas.getContext('2d');
+const turfRandom=seeded(island.seed+71);
+turfContext.fillStyle='#d8d8d8';
+turfContext.fillRect(0,0,192,192);
+for(let i=0;i<115;i++){
+  const x=turfRandom()*192,y=turfRandom()*192,r=5+turfRandom()*26;
+  const shade=Math.floor(122+turfRandom()*115);
+  for(const dx of [-192,0,192])for(const dy of [-192,0,192]){
+    const gradient=turfContext.createRadialGradient(x+dx,y+dy,0,x+dx,y+dy,r);
+    gradient.addColorStop(0,'rgba('+shade+','+shade+','+shade+',.32)');
+    gradient.addColorStop(1,'rgba('+shade+','+shade+','+shade+',0)');
+    turfContext.fillStyle=gradient;
+    turfContext.fillRect(x+dx-r,y+dy-r,r*2,r*2);
+  }
+}
+const turfTexture=new T.CanvasTexture(turfCanvas);
+turfTexture.colorSpace=T.SRGBColorSpace;
+turfTexture.wrapS=turfTexture.wrapT=T.RepeatWrapping;
+turfTexture.repeat.set(3,3);
+const turf=material('#2F5D50',{map:turfTexture});
 const sand=material('#C9B48A');
 const rockWall=material('#47485e',{flatShading:true});
 for(const {x,radius} of island.zones){
@@ -159,8 +183,11 @@ function addObstacle(x,z,radius,clearance) {
 }
 const canMove = (...movement) => slideMovement(obstacles, ...movement);
 const batches = new Map();
-function prop(name, geometry, surface, x, y, z, sx, sy, sz, angle) {
-  if (!batches.has(name)) batches.set(name,{geometry,surface,matrices:[]});
+const treeBatches=[];
+const hiddenTreeMatrix=new T.Matrix4().makeScale(0,0,0);
+function prop(name, geometry, surface, x, y, z, sx, sy, sz, angle, tree=null) {
+  if (!batches.has(name)) batches.set(name,{geometry,surface,matrices:[],trees:[]});
+  batches.get(name).trees.push(tree);
   const rotation = new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),angle);
   batches.get(name).matrices.push(new T.Matrix4().compose(new T.Vector3(x,y,z),rotation,new T.Vector3(sx,sy,sz)));
 }
@@ -181,8 +208,8 @@ function scatter() {
   const trunk = new T.CylinderGeometry(.12,.27,1,7);
   const leaf = new T.IcosahedronGeometry(1,0);
   const palettes = [
-    ['#28564b','#46815c','#6ca16d'], ['#57314f','#ab5579','#dc8598'],
-    ['#77523d','#c68a46','#e4b868']
+    ['#28564b','#4b8b66','#7cab78'], ['#60334c','#b36281','#e498a5'],
+    ['#77523d','#ca934f','#ecc37d']
   ].map(colors=>colors.map(color=>material(color,{flatShading:true})));
   const herbs = ['#487761','#686b84','#8c9c55'].map(color=>material(color,{flatShading:true}));
   const flowers = ['#f1abb7','#e7be76','#bd9de5','#f8d7ae'].map(color=>material(color,{emissive:color,emissiveIntensity:.18}));
@@ -202,17 +229,18 @@ function scatter() {
     } else if(!byTrail && v<.57){
       const theme=(x>18&&z>-15)||Math.sin(x*.18+z*.08)>.6 ? 1 : (z>12&&Math.cos(z*.17)>.02 ? 2 : 0);
       const palette=palettes[theme];
-      prop('trunks',trunk,timber,x,y+size*1.25,z,size,size*2.5,size,0);
+      const tree={x,y,z,radius:size*1.44};
+      prop('trunks',trunk,timber,x,y+size*1.25,z,size,size*2.5,size,0,tree);
       addObstacle(x,z,size*.27,Infinity);
       for(let j=0;j<3;j++){
         const width=size*(1.34-j*.25);
         if(theme===0){
-          prop('pine'+j,needle,palette[j],x,y+size*(1.93+j*.78),z,width,size*1.70,width,random()*6);
+          prop('pine'+j,needle,palette[j],x,y+size*(1.93+j*.78),z,width,size*1.70,width,random()*6,tree);
         }else{
           for(let branch=0;branch<3;branch++){
             const angle=branch*2.094+j*.77;
             prop('canopy'+theme+j,leaf,palette[j],x+Math.cos(angle)*width*.55,
-              y+size*(1.93+j*.61),z+Math.sin(angle)*width*.55,width*.88,width*.75,width*.83,angle);
+              y+size*(1.93+j*.61),z+Math.sin(angle)*width*.55,width*.88,width*.75,width*.83,angle,tree);
           }
         }
       }
@@ -229,13 +257,43 @@ function scatter() {
       }
     }
   }
-  for(const {geometry,surface,matrices} of batches.values()){
+  for(const {geometry,surface,matrices,trees} of batches.values()){
     const mesh=new T.InstancedMesh(geometry,surface,matrices.length);
     matrices.forEach((matrix,i)=>mesh.setMatrixAt(i,matrix));
     scene.add(mesh);
+    if(trees.some(Boolean)){
+      mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
+      treeBatches.push({mesh,matrices,trees,hidden:new Uint8Array(trees.length)});
+    }
   }
 }
 scatter();
+
+let nextTreeUpdate=0;
+function revealPlayer(now,x,y,z){
+  if(now<nextTreeUpdate)return;
+  nextTreeUpdate=now+70;
+  const angle=Math.hypot(camera.position.x-x,camera.position.z-z);
+  const ux=(camera.position.x-x)/Math.max(1,angle),uz=(camera.position.z-z)/Math.max(1,angle);
+  const slope=(camera.position.y-y)/Math.max(1,angle);
+  for(const {mesh,matrices,trees,hidden} of treeBatches){
+    let dirty=false;
+    for(let i=0;i<trees.length;i++){
+      const tree=trees[i],dx=tree.x-x,dz=tree.z-z;
+      const reach=tree.radius+(hidden[i]?1.08:.60);
+      const near=dx*dx+dz*dz<=reach*reach;
+      const along=dx*ux+dz*uz;
+      const side=Math.abs(-dx*uz+dz*ux);
+      const mustHide=Math.abs(tree.y-y)<4.3&&(near||(along>0&&along<9&&side<reach&&
+        y+along*slope<=tree.y+tree.radius*2.95))?1:0;
+      if(mustHide===hidden[i])continue;
+      hidden[i]=mustHide;
+      mesh.setMatrixAt(i,mustHide?hiddenTreeMatrix:matrices[i]);
+      dirty=true;
+    }
+    if(dirty)mesh.instanceMatrix.needsUpdate=true;
+  }
+}
 
 const cliff = material('#3e3c56',{flatShading:true});
 const needleRidge = new T.CylinderGeometry(.36,1,1,7);
@@ -764,6 +822,7 @@ renderer.setAnimationLoop(now=>{
   offset.set(viewDistance*Math.sin(theta),viewDistance*.80,viewDistance*Math.cos(theta));
   camera.position.copy(aim).addScaledVector(offset,camera.aspect<.74?1.21:1);
   camera.lookAt(aim);
+  revealPlayer(now,px,py,pz);
   const lit=game.lanterns.filter(l=>l.lit);
   ambient.intensity=.15+.55*lit.length/game.lanterns.length;
   for(const [i,l] of game.lanterns.entries()){

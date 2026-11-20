@@ -187,3 +187,15 @@ test('browser nights start with a larger supply and replenish more often', () =>
     assert.equal(createGame(7,{},night).motes.length,20);
   }
 });
+
+test('browser shades notice Mây earlier and patrol inward from distant shores', () => {
+  const scenario={...quiet,shades:[{pos:[30,0,0]}]};
+  const browser=createGame(4,scenario,1,false,true);
+  const headless=createGame(4,scenario);
+  step(browser);step(headless);
+  assert.equal(browser.shades[0].state,'chase');
+  assert.equal(headless.shades[0].state,'wander');
+  const distant=createGame(4,{...quiet,player:{pos:[-30,0,0]},shades:[{pos:[37,0,0]}]},1,false,true);
+  for(let i=0;i<70;i++)step(distant);
+  assert.ok(distant.shades[0].pos[0]<35);
+});

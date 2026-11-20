@@ -45,7 +45,7 @@ export function createGame(seed=maps[0].seed, scenario={}, night=1, practice=fal
   const nextShade=mint(shades,'S'),nextDrifter=mint(drifters,'D');
   const pos=[...(p.pos??map.spawn??[0,0,0])];
   return {
-    night,map,random,practice,moteSpawns,moteLimit,moteInterval,spotCooldowns:browser?new Map():null,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
+    night,map,random,practice,browser,moteSpawns,moteLimit,moteInterval,spotCooldowns:browser?new Map():null,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
     initialTime:scenario.time_left_s??tuning['night'+night+'_duration_s'],
     player:{pos,vel:[0,0,0],grounded:pos[1]===surface(night,pos[0],pos[2]),flames:p.flames??3,carried:p.carried??0,
       facing:[0,1],invuln:p.invuln_ticks??0,dashCd:p.dash_cd_ticks??0,pulseCd:p.pulse_cd_ticks??0,
@@ -184,14 +184,22 @@ function driveShade(g,s,lit,resolve) {
   }else{
     const d=distance(p,s.pos);
     const speed=(g.night===3?4.5:4)/hz;
-    const notice=g.practice?21:12, leash=g.practice?29:18;
+    const notice=g.browser?(g.practice?48:40):(g.practice?21:12);
+    const leash=g.browser?(g.practice?65:56):(g.practice?29:18);
     if(d<=notice||(s.state==='chase'&&d<=leash)){
       s.state='chase';
       [dx,dz]=d?unit(p[0]-s.pos[0],p[2]-s.pos[2]).map(v=>v*Math.min(speed,d)):[0,0];
     }else{
       s.state='wander';
       const a=Number(s.id.replace(/^\D+/,''))||1;
-      dx=Math.cos(g.simTick/139+a)*speed*.40;dz=Math.sin(g.simTick/139+a)*speed*.40;
+      if(g.browser&&d>notice){
+        const home=g.map.zones.reduce((closest,zone)=>
+          Math.abs(zone.x-s.pos[0])<Math.abs(closest.x-s.pos[0])?zone:closest);
+        const headings=unit(home.x-s.pos[0],-s.pos[2]);
+        [dx,dz]=headings.map(v=>v*speed*.65);
+      }else{
+        dx=Math.cos(g.simTick/139+a)*speed*.40;dz=Math.sin(g.simTick/139+a)*speed*.40;
+      }
     }
   }
   const currentFloor=surface(g.night,s.pos[0],s.pos[2]);
