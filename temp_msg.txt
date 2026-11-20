@@ -1,1 +1,1 @@
-Implement lantern fuel and dawn rules for Phase 3
+Restore fixed tuning and route shades to the bell tower

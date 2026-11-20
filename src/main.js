@@ -450,7 +450,7 @@ const carriedLight=new T.PointLight('#ffb170',47,13,2);
 scene.add(carriedLight);
 const pulseRing=model(scene,new T.RingGeometry(.90,1,64),flat('#ffc879',{transparent:true,opacity:0,side:T.DoubleSide,depthWrite:false}),0,.35,0);
 pulseRing.rotation.x=-Math.PI/2;
-let pulseAge=2;
+let pulseAge=2,pulseHits=0;
 const dragons=createPulseDragons(scene);
 const guardianAura=new T.Group();
 scene.add(guardianAura);
@@ -825,6 +825,11 @@ function populate(time){
     bladeArm.rotation.x=moving?-.42+Math.sin(time*13)*.21:.36;
     halo.material.color.set(s.state==='stunned'?'#3A3450':settings.accessible?'#00B3FF':'#7A3CFF');
     if(s.state==='drain')body.rotation.x=.43;
+    if(s.state==='stunned'){
+      body.rotation.x=.22+Math.max(0,s.left-105)*.035;
+      body.rotation.z=Math.sin(time*21)*Math.max(0,s.left-104)*.012;
+      if(s.left>105)halo.material.color.set('#ffd381');
+    }else body.rotation.z=0;
     halo.material.opacity=s.state==='drain'?.83:s.state==='stunned'?.66:.34;
   }
 }
@@ -875,6 +880,7 @@ renderer.setAnimationLoop(now=>{
     for(const e of events){
       if(e.name==='pulse'){
         pulseAge=0;
+        pulseHits=e.data.stunned_ids.length;
         dragons.start(...game.player.pos);
         pulseRing.position.set(game.player.pos[0],game.player.pos[1]+.22,game.player.pos[2]);
       }
@@ -1007,7 +1013,9 @@ function updateHud(px,py,pz,litCount){
   ui.flames.textContent='◆'.repeat(p.flames)+'◇'.repeat(3-p.flames);
   ui.score.textContent=campaignTotal+game.score;
   ui['dash-cd'].textContent='➤ Lướt '+(p.dashCd?(p.dashCd/60).toFixed(1)+' s':p.charm?'· Bùa Gió':'· Sẵn sàng');
-  ui['pulse-cd'].textContent='✦ Tỏa sáng '+(p.pulseCd?(p.pulseCd/60).toFixed(1)+' s':'· '+p.carried+'/3');
+  ui['pulse-cd'].textContent=pulseAge<1.15
+    ? '✦ '+(pulseHits?'Choáng '+pulseHits+' Bóng Mực':'Ngoài tầm')
+    : '✦ Tỏa sáng '+(p.pulseCd?(p.pulseCd/60).toFixed(1)+' s':'· '+p.carried+'/3');
   const seconds=Math.ceil(timeLeft(game));
   ui.time.textContent=(seconds<=30&&settings.accessible?'⚠ ':'')+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
   ui.time.classList.toggle('danger',seconds<=30);

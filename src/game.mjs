@@ -211,7 +211,8 @@ function driveShade(g,s,lit,resolve) {
   const ward=lit.find(l=>distance(l.pos,s.pos)<6-1e-9&&Math.abs(l.pos[1]-s.pos[1])<=1.5);
   if(s.ward&&!isSafe(s.ward.lantern))s.ward=null;
   if(ward&&!s.ward)s.ward={lantern:ward,ticks:30};
-  if(s.ward){
+  const pulsing=s.state==='stunned'&&s.left>0&&s.push>0;
+  if(s.ward&&!pulsing){
     const {lantern:l}=s.ward;
     const [x,z]=unit(s.pos[0]-l.pos[0],s.pos[2]-l.pos[2]);
     const r=distance(l.pos,s.pos);
@@ -263,15 +264,31 @@ function driveShade(g,s,lit,resolve) {
   const groundBlocks=(x,z,floor)=>!Number.isFinite(floor)||
     (Number.isFinite(currentFloor)&&Math.abs(floor-currentFloor)>.65)||
     (g.night===3&&floor===6&&Math.hypot(x,z)<2);
-  const wardAt=(x,z)=>lit.find(l=>Math.abs(l.pos[1]-s.pos[1])<=1.5&&Math.hypot(l.pos[0]-x,l.pos[2]-z)<6-1e-9);
+  const wardAt=(x,z)=>lit.find(l=>l!==s.ward?.lantern&&Math.abs(l.pos[1]-s.pos[1])<=1.5&&Math.hypot(l.pos[0]-x,l.pos[2]-z)<6-1e-9);
   const walking=s.state==='chase'||s.state==='wander';
   let nx=s.pos[0]+dx,nz=s.pos[2]+dz;
   if(walking&&resolve)[nx,nz]=resolve(s.pos[0],s.pos[2],nx,nz,0);
   let floor=surface(g.night,nx,nz);
   let terrainBlocks=groundBlocks(nx,nz,floor);
-  if(s.state==='stunned'&&resolve&&!terrainBlocks){
-    const [tx,tz]=resolve(s.pos[0],s.pos[2],nx,nz,0);
-    terrainBlocks=Math.hypot(tx-nx,tz-nz)>1e-7;
+  if(pulsing){
+    const free=(x,z)=>{
+      if(groundBlocks(x,z,surface(g.night,x,z))||wardAt(x,z))return false;
+      if(!resolve)return true;
+      const [tx,tz]=resolve(s.pos[0],s.pos[2],x,z,0);
+      return Math.hypot(tx-x,tz-z)<1e-7;
+    };
+    if(!free(nx,nz)){
+      let low=0,high=1;
+      for(let i=0;i<11;i++){
+        const fraction=(low+high)*.5;
+        if(free(s.pos[0]+dx*fraction,s.pos[2]+dz*fraction))low=fraction;
+        else high=fraction;
+      }
+      nx=s.pos[0]+dx*low;nz=s.pos[2]+dz*low;
+      floor=surface(g.night,nx,nz);
+      terrainBlocks=false;
+      s.push=0;
+    }
   }
   if(walking&&(terrainBlocks||(nx===s.pos[0]&&nz===s.pos[2]))&&(dx||dz)){
     const sign=s.steerSide??1;
@@ -297,6 +314,10 @@ function driveShade(g,s,lit,resolve) {
     const a=dx*dx+dz*dz,b=x*dx+z*dz,c=x*x+z*z-36;
     const t=Math.max(0,(-b-Math.sqrt(Math.max(0,b*b-a*c)))/a);
     if(Number.isFinite(t)){s.pos[0]+=dx*t;s.pos[2]+=dz*t;}
+  }
+  if(pulsing&&s.ward){
+    if(distance(s.ward.lantern.pos,s.pos)>=6-1e-9)s.ward=null;
+    else s.ward.ticks=Math.max(1,s.ward.ticks-1);
   }
   if(drainTarget&&distance(drainTarget.pos,s.pos)<=2){
     s.state='drain';s.targetLanternId=drainTarget.id;return false;

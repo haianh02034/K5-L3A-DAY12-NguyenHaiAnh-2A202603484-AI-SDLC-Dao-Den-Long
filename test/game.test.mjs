@@ -235,3 +235,22 @@ test('a Night 3 shade follows the ramp and launch pad to reach the tower',()=>{
   assert.equal(launched,true);
   assert.equal(g.shades[0].pos[1],6);
 });
+
+test('Q starts its push immediately inside a ward and respects the ward eviction deadline',()=>{
+  const g=createGame(9,{...quiet,player:{carried:3},lanterns:[{id:'L1',pos:[0,0,0],lit:true}],
+    shades:[{pos:[2,0,0]}]});
+  step(g,input({pulse:true}));
+  assert.ok(Math.abs(g.shades[0].pos[0]-(2+4/15))<1e-8);
+  for(let i=1;i<15;i++)step(g);
+  assert.ok(Math.abs(g.shades[0].pos[0]-6)<1e-8);
+  assert.equal(g.player.flames,3);
+});
+
+test('Q advances to a solid obstacle before stopping and leaves the shade stunned',()=>{
+  const g=createGame(9,{...quiet,player:{carried:3},shades:[{pos:[2,0,0]}]});
+  const resolve=(x,z,toX,toZ)=>toX>2.13?[x,z]:[toX,toZ];
+  step(g,input({pulse:true}),resolve);
+  assert.ok(g.shades[0].pos[0]>2.129&&g.shades[0].pos[0]<=2.13);
+  assert.equal(g.shades[0].push,0);
+  assert.equal(g.shades[0].state,'stunned');
+});
