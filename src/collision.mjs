@@ -28,9 +28,11 @@ export function slideMovement(obstacles, x, z, toX, toZ, height) {
   const stride = Math.max(Math.abs(projected), distance * .58);
   for (const direction of [side, -side]) {
     // A small outward component leaves room to turn around the obstacle.
-    const tx = x - nz * stride * direction + nx * distance * .08;
-    const tz = z + nx * stride * direction + nz * distance * .08;
-    if (!blocker(obstacles, x, z, tx, tz, height)) return [tx, tz];
+    for (const fraction of [1, .62, .34]) {
+      const tx = x - nz * stride * direction * fraction + nx * distance * .12;
+      const tz = z + nx * stride * direction * fraction + nz * distance * .12;
+      if (!blocker(obstacles, x, z, tx, tz, height)) return [tx, tz];
+    }
   }
   return [x, z];
 }

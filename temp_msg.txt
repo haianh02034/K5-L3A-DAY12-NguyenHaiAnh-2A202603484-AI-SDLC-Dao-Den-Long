@@ -1,1 +1,1 @@
-Polish shrine lighting, obstacle sliding and difficulty
+Build three-night campaign and implement Test Contract v1.1

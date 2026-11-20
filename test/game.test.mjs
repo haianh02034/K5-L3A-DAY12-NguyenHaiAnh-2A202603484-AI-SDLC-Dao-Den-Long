@@ -133,3 +133,22 @@ test('night three wind warns before pushing, then stops after five seconds',()=>
   for(let i=0;i<300;i++)step(g);
   assert.equal(g.wind.active,false);
 });
+
+test('practice uses 20 percent more speed and starting motes without changing Contract v1.1 defaults', () => {
+  for(const night of [1,2,3]){
+    const standard=createGame(5,{},night);
+    const preview=createGame(5,{},night,true);
+    assert.equal(standard.motes.length,20);
+    assert.equal(preview.motes.length,24);
+    step(standard,input({move:[1,0]}));
+    step(preview,input({move:[1,0]}));
+    assert.ok(Math.abs(preview.player.vel[0]-standard.player.vel[0]*1.2)<1e-8);
+  }
+});
+
+test('browser movement follows a terrace when the player holds forward into its wall', () => {
+  const g=createGame(5,{...quiet,player:{pos:[0,0,24.6]}},3);
+  for(let i=0;i<16;i++)step(g,input({move:[0,-1]}),(_x,_z,toX,toZ)=>[toX,toZ]);
+  assert.ok(Math.abs(g.player.pos[0])>.5);
+  assert.equal(g.player.pos[1],0);
+});

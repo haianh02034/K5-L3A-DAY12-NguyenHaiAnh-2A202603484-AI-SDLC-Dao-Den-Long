@@ -22,16 +22,23 @@ function mint(items,prefix) {
   return ()=>{while(used.has(prefix+n))n++;return prefix+n++;};
 }
 
-export function createGame(seed=maps[0].seed, scenario={}, night=1) {
+export function createGame(seed=maps[0].seed, scenario={}, night=1, practice=false) {
   const map=maps[night-1], random=seeded(seed);
-  const placed=[...map.moteSpawns], locations=[];
-  while(placed.length&&locations.length<20) locations.push(placed.splice(Math.floor(random()*placed.length),1)[0]);
+  const moteSpawns=[...map.moteSpawns];
+  if(practice){
+    for(const [x,y,z] of map.moteSpawns){
+      const next=[x+2.5,y,z+1.5];
+      if(surface(night,next[0],next[2])===y)moteSpawns.push(next);
+    }
+  }
+  const placed=[...moteSpawns], locations=[];
+  while(placed.length&&locations.length<(practice?24:20)) locations.push(placed.splice(Math.floor(random()*placed.length),1)[0]);
   const p=scenario.player??{};
   const shades=scenario.shades??[], drifters=scenario.drifters??[];
   const nextShade=mint(shades,'S'),nextDrifter=mint(drifters,'D');
   const pos=[...(p.pos??map.spawn??[0,0,0])];
   return {
-    night,map,random,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
+    night,map,random,practice,moteSpawns,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
     initialTime:scenario.time_left_s??tuning['night'+night+'_duration_s'],
     player:{pos,vel:[0,0,0],grounded:pos[1]===surface(night,pos[0],pos[2]),flames:p.flames??3,carried:p.carried??0,
       facing:[0,1],invuln:p.invuln_ticks??0,dashCd:p.dash_cd_ticks??0,pulseCd:p.pulse_cd_ticks??0,
@@ -75,7 +82,7 @@ function movePlayer(g,input,pressed,emit,resolve) {
   if(pressed('dash')&&!p.dash&&(!p.dashCd||p.charm)){
     p.dash=12;p.dashCd=p.charm?0:90;emit('dash',{});
   }
-  const walking=p.charm?7.2:6;
+  const walking=(p.charm?7.2:6)*(g.practice?1.2:1);
   let vx=world[0]*walking/Math.max(1,magnitude),vz=world[1]*walking/Math.max(1,magnitude);
   if(p.launch) [vx,vz]=p.launch;
   if(p.dash){vx=p.facing[0]*14;vz=p.facing[1]*14;}
@@ -101,8 +108,23 @@ function movePlayer(g,input,pressed,emit,resolve) {
   let nx=x+vx/hz,nz=z+vz/hz;
   if(resolve) [nx,nz]=resolve(x,z,nx,nz,y-(Number.isFinite(ground)?ground:0));
   let nextSurface=surface(night,nx,nz);
-  if(nextSurface>y+.55||(night===3&&Math.hypot(nx,nz)<2&&y>=5.8&&y<14)){
+  const blocked=(tx,tz,level)=>level>y+.55||
+    (night===3&&Math.hypot(tx,tz)<2&&y>=5.8&&y<14);
+  if(blocked(nx,nz,nextSurface)){
+    const dx=nx-x,dz=nz-z;
     nx=x;nz=z;nextSurface=ground;
+    if(resolve){
+      // Try oblique directions along ramp and terrace edges, preserving forward input.
+      for(const turn of [.55,-.55,1,-1,1.34,-1.34,1.64,-1.64]){
+        const tx=x+(dx*Math.cos(turn)-dz*Math.sin(turn))*.88;
+        const tz=z+(dx*Math.sin(turn)+dz*Math.cos(turn))*.88;
+        const [sx,sz]=resolve(x,z,tx,tz,Number.isFinite(ground)?y-ground:y);
+        const level=surface(night,sx,sz);
+        if(Number.isFinite(level)&&!blocked(sx,sz,level)){
+          nx=sx;nz=sz;nextSurface=level;break;
+        }
+      }
+    }
   }
   let ny=y;
   if(p.grounded&&Number.isFinite(nextSurface)&&Math.abs(nextSurface-y)<=.55){ny=nextSurface;}
@@ -205,8 +227,8 @@ function moveDrifter(g,d) {
 
 function spawn(g,emit) {
   const t=g.simTick;
-  if(g.spawnMotes&&t%240===0&&g.motes.length<30){
-    const empty=g.map.moteSpawns.filter(pos=>!g.motes.some(m=>length3(m.pos,pos)<.01));
+  if(g.spawnMotes&&t%(g.practice?200:240)===0&&g.motes.length<(g.practice?36:30)){
+    const empty=g.moteSpawns.filter(pos=>!g.motes.some(m=>length3(m.pos,pos)<.01));
     if(empty.length)g.motes.push({id:'M'+g.nextMote++,pos:[...randomPick(empty,g.random)],
       kind:'random',ttl:null,available:t+1});
   }

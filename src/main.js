@@ -1,8 +1,11 @@
 import * as T from 'three';
 import { maps, surface } from './maps.mjs';
 import { createAudio } from './audio.mjs';
+import { createPulseDragons } from './pulse-dragons.mjs';
 
-const night = Number(location.hash.slice(1)) || 1;
+const route=location.hash.slice(1);
+const practice=route.startsWith('test-');
+const night=Number(route.replace('test-',''))||1;
 const island = maps[night-1] ?? maps[0];
 const nightNumber = maps.indexOf(island)+1;
 const floor = (x,z) => surface(nightNumber,x,z);
@@ -21,9 +24,9 @@ try {
   ui.objective.textContent = 'Trình duyệt cần WebGL 2 để mở game.';
   throw error;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.15));
 renderer.toneMapping = T.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.22;
+renderer.toneMappingExposure = 1.39;
 document.body.prepend(renderer.domElement);
 const random = seeded(island.seed);
 const material = (color, extra = {}) => new T.MeshStandardMaterial({ color, roughness: 0.77, ...extra });
@@ -48,6 +51,9 @@ scene.add(ambient);
 const moon = new T.DirectionalLight('#b7c9ff', 1.45);
 moon.position.set(-30, 42, 17);
 scene.add(moon);
+const fill=new T.DirectionalLight('#dbdefe',.52);
+fill.position.set(9,24,-30);
+scene.add(fill);
 
 function model(parent, shape, surface, x, y, z, sx = 1, sy = sx, sz = sx) {
   const mesh = new T.Mesh(shape, surface);
@@ -357,7 +363,9 @@ const carriedLight=new T.PointLight('#ffb170',47,13,2);
 scene.add(carriedLight);
 const pulseRing=model(scene,new T.RingGeometry(.90,1,64),flat('#ffc879',{transparent:true,opacity:0,side:T.DoubleSide,depthWrite:false}),0,.35,0);
 pulseRing.rotation.x=-Math.PI/2;
-let pulseAge=1;
+let pulseAge=2;
+const dragons=createPulseDragons(scene);
+let viewDistance=32;
 
 function mote() {
   const g=new T.Group();
@@ -429,8 +437,8 @@ for(const id of ['volume','sensitivity']){
     settings[id]=Number(ui[id].value);write('localStorage','island-'+id,settings[id]);
   });
 }
-let game=createGame(island.seed,{},nightNumber);
-const campaignTotal=nightNumber===1?0:Number(read('sessionStorage','island-score',0));
+let game=createGame(island.seed,{},nightNumber,practice);
+const campaignTotal=nightNumber===1||practice?0:Number(read('sessionStorage','island-score',0));
 let moteScenes=new Map(), shadeScenes=new Map();
 const drifterScenes=new Map();
 const charmScenes=island.charms.map(([x,y,z])=>{
@@ -464,9 +472,9 @@ function show(name) {
   keys.clear();
   for(const key of Object.keys(actions))actions[key]=false;
 }
-function go(number){
+function go(number,testMode=false){
   const url=new URL(location.href);
-  url.hash=number?'#'+number:'';
+  url.hash=number?'#'+(testMode?'test-':'')+number:'';
   location.replace(url.href);
   location.reload();
 }
@@ -480,16 +488,19 @@ function reset(){
   for(const s of shadeScenes.values())scene.remove(s.g);
   for(const d of drifterScenes.values())scene.remove(d);
   drifterScenes.clear();moteScenes=new Map();shadeScenes=new Map();
-  game=createGame(island.seed,{},nightNumber);
+  game=createGame(island.seed,{},nightNumber,practice);
   priorPosition=[...game.player.pos];nextHud=0;accumulator=0;
-  aim.set(game.player.pos[0],0,game.player.pos[2]+3);target=null;pulseAge=1;lastCountdown=11;lastWind=false;
+  aim.set(game.player.pos[0],0,game.player.pos[2]+3);target=null;pulseAge=2;lastCountdown=11;lastWind=false;
   ui.pause.hidden=false;
   show('playing');audio.start();
 }
 ui['intro-night'].textContent='Đêm '+nightNumber+' / 3';
 ui['intro-title'].textContent=island.name;
 ui['intro-words'].textContent='Ông Đăng: “'+island.words+'”';
-ui['night-label'].textContent='Đêm '+nightNumber+' · '+island.name;
+ui['night-label'].textContent=(practice?'Thử đảo · ':'Đêm '+nightNumber+' · ')+island.name;
+ui.quick.textContent=nightNumber===3?'Thử lại từ Đảo Bến':'Qua Đêm nhanh';
+for(const number of [1,2,3])ui['practice-'+number].addEventListener('click',()=>go(number,true));
+ui.quick.addEventListener('click',()=>go(nightNumber%3+1,true));
 for(let i=0;i<10;i++){
   const slot=document.createElement('span');slot.className='slot';ui.slots.append(slot);
 }
@@ -508,7 +519,8 @@ ui.replay.addEventListener('click',reset);
 for(const id of ['pause-menu','end-menu'])ui[id].addEventListener('click',()=>go(0));
 ui.next.addEventListener('click',()=>{
   if(game.state==='won'&&nightNumber<3){
-    write('sessionStorage','island-score',campaignTotal+game.score);go(nightNumber+1);
+    if(!practice)write('sessionStorage','island-score',campaignTotal+game.score);
+    go(nightNumber+1,practice);
   }
 });
 show(view);
@@ -533,6 +545,11 @@ renderer.domElement.addEventListener('pointerdown',e=>{
   target=pointer.ray.intersectPlane(plane,new T.Vector3());
 });
 renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+renderer.domElement.addEventListener('wheel',e=>{
+  if(view!=='playing')return;
+  e.preventDefault();
+  viewDistance=Math.max(24,Math.min(41,viewDistance+Math.sign(e.deltaY)*2));
+},{passive:false});
 renderer.domElement.addEventListener('pointermove',e=>{
   if(view==='playing'&&(e.buttons&2))yawDeg-=e.movementX*.28*settings.sensitivity;
 });
@@ -581,9 +598,13 @@ function map(){
   nav.fillStyle='#dcfff7';nav.fill();
 }
 
+let visualTick=-1;
 function populate(time){
-  const active=new Set(game.motes.map(m=>m.id));
-  for(const [id,g] of moteScenes)if(!active.has(id)){scene.remove(g);moteScenes.delete(id);}
+  if(visualTick!==game.simTick){
+    visualTick=game.simTick;
+    const active=new Set(game.motes.map(m=>m.id));
+    for(const [id,g] of moteScenes)if(!active.has(id)){scene.remove(g);moteScenes.delete(id);}
+  }
   for(const [i,model] of charmScenes.entries()){
     model.visible=game.charms[i]?.available??false;
     model.rotation.y=time*1.8;
@@ -612,8 +633,12 @@ function populate(time){
     leaf.rotation.set(time+i,0,time*2+i);
   }
   for(const m of game.motes){
-    if(!moteScenes.has(m.id))moteScenes.set(m.id,mote());
+    const close=Math.abs(m.pos[0]-game.player.pos[0])<61&&Math.abs(m.pos[2]-game.player.pos[2])<61;
+    if(!moteScenes.has(m.id)&&close)moteScenes.set(m.id,mote());
     const g=moteScenes.get(m.id);
+    if(!g)continue;
+    g.visible=close;
+    if(!close)continue;
     const phase=Number(m.id.slice(1))*.77;
     const driftX=Math.sin(time*.79+phase)*.34;
     const driftZ=Math.cos(time*.62+phase)*.32;
@@ -644,7 +669,7 @@ renderer.setAnimationLoop(now=>{
   const dt=Math.min(Math.max(0,(now-previous)/1000),.067);
   previous=now;
   const running=view==='playing'&&game.state==='playing';
-  const time=game.simTick/60;
+  let time=game.simTick/60;
   accumulator=running?accumulator+dt:0;
   let x=key('KeyD','ArrowRight')-key('KeyA','ArrowLeft');
   let z=key('KeyS','ArrowDown')-key('KeyW','ArrowUp');
@@ -670,11 +695,15 @@ renderer.setAnimationLoop(now=>{
     const events=step(game,input,canMove);
     if(wasGrounded&&!game.player.grounded&&game.player.vel[1]>0)audio.play('jump');
     for(const e of events){
-      if(e.name==='pulse')pulseAge=0;
+      if(e.name==='pulse'){
+        pulseAge=0;
+        dragons.start(...game.player.pos);
+      }
       audio.play(e.name==='game_over'?e.data.result:e.name);
     }
     accumulator-=1/60;
   }
+  if(running)time+=accumulator;
   displayed.fromArray(priorPosition);
   const blend=running?Math.min(1,accumulator*60):1;
   displayed.x+=(game.player.pos[0]-displayed.x)*blend;
@@ -700,7 +729,7 @@ renderer.setAnimationLoop(now=>{
   carriedLight.position.set(px,Math.max(0,py)+2.4,pz);
   aim.lerp(cameraTarget.set(px,Math.max(0,py),pz+3),1-Math.exp(-dt*5));
   const theta=yawDeg*Math.PI/180;
-  offset.set(30*Math.sin(theta),26,30*Math.cos(theta));
+  offset.set(viewDistance*Math.sin(theta),viewDistance*.80,viewDistance*Math.cos(theta));
   camera.position.copy(aim).addScaledVector(offset,camera.aspect<.74?1.21:1);
   camera.lookAt(aim);
   const lit=game.lanterns.filter(l=>l.lit);
@@ -727,6 +756,7 @@ renderer.setAnimationLoop(now=>{
   if(closest)shrineLight.position.set(closest.pos[0],closest.pos[1]+3,closest.pos[2]);
   populate(time);
   if(running)pulseAge+=dt;
+  dragons.update(pulseAge);
   pulseRing.visible=pulseAge<.65;
   pulseRing.position.set(px,py+.42,pz);
   pulseRing.scale.setScalar(Math.max(.2,pulseAge/.65*tuning.pulse_radius));
@@ -778,7 +808,7 @@ function updateHud(px,py,pz,litCount){
     const finale=won&&nightNumber===3;
     ui['result-label'].textContent='Đêm '+nightNumber+' · '+island.name;
     ui.result.textContent=finale?'Bình Minh':won?island.name+' đã sáng':'Đêm đã khép lại';
-    ui.summary.textContent=finale?'Tổng điểm · '+(campaignTotal+game.score):'Điểm đêm này · '+game.score;
+    ui.summary.textContent=practice?'Điểm lượt thử · '+game.score:finale?'Tổng điểm · '+(campaignTotal+game.score):'Điểm đêm này · '+game.score;
     ui.restart.hidden=won;ui.next.hidden=!won||finale;
     ui.pause.hidden=true;
     show('ending');
