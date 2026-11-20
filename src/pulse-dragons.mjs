@@ -8,6 +8,25 @@ export function createPulseDragons(scene) {
   root.name='Pulse Dragons';
   root.visible=false;
   scene.add(root);
+  const aura=new T.Group();
+  aura.visible=false;
+  scene.add(aura);
+  const ringsFX=[0,1,2].map(index=>{
+    const ring=new T.Mesh(new T.TorusGeometry(1,.015,6,64),new T.MeshBasicMaterial({
+      color:index===1?'#ff9550':'#fff1b0',transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,
+    }));
+    ring.rotation.x=-Math.PI/2;
+    aura.add(ring);
+    return ring;
+  });
+  const sparkGeometry=new T.BufferGeometry();
+  const sparkPositions=new Float32Array(72*3);
+  sparkGeometry.setAttribute('position',new T.BufferAttribute(sparkPositions,3).setUsage(T.DynamicDrawUsage));
+  const sparkMaterial=new T.PointsMaterial({color:'#ffd889',size:.17,transparent:true,depthWrite:false,
+    blending:T.AdditiveBlending,toneMapped:false});
+  const sparks=new T.Points(sparkGeometry,sparkMaterial);
+  sparks.frustumCulled=false;
+  aura.add(sparks);
   const metal=(color,emissive)=>new T.MeshStandardMaterial({
     color,emissive,emissiveIntensity:.48,roughness:.38,metalness:.28,
   });
@@ -121,15 +140,32 @@ export function createPulseDragons(scene) {
     const instance=model.clone();root.add(instance);return instance;
   });
   return {
-    start(x,y,z){root.position.set(x,y+.83,z);},
+    start(x,y,z){root.position.set(x,y+.83,z);aura.position.set(x,y+.12,z);},
     update(age){
       const t=age/1.45;
       root.visible=t>=0&&t<1;
+      aura.visible=root.visible;
       if(!root.visible)return;
+      ringsFX.forEach((ring,i)=>{
+        const travel=Math.max(0,t-i*.105);
+        ring.visible=travel>0;
+        ring.position.y=.08+i*.15;
+        ring.scale.setScalar(.38+travel*8.3);
+        ring.material.opacity=Math.max(0,.47-travel*.55);
+      });
+      for(let i=0;i<72;i++){
+        const angle=i*Math.PI/36+t*(1.5+i%3*.30);
+        const radius=t*(3.1+(i%12)*.42);
+        sparkPositions[i*3]=Math.cos(angle)*radius;
+        sparkPositions[i*3+1]=.18+Math.sin(t*Math.PI)*(i%7)*.22;
+        sparkPositions[i*3+2]=Math.sin(angle)*radius;
+      }
+      sparkGeometry.attributes.position.needsUpdate=true;
+      sparkMaterial.opacity=(1-t)*.84;
       for(const [i,rig] of dragons.entries()){
         const angle=i*Math.PI/3+t*.66;
-        const span=1.4+5.2*(1-(1-t)**2);
-        rig.position.set(Math.cos(angle)*span,.18+Math.sin(t*Math.PI)*1.12,Math.sin(angle)*span);
+        const span=1.3+6.4*(1-(1-t)**2);
+        rig.position.set(Math.cos(angle)*span,.18+Math.sin(t*Math.PI)*1.52,Math.sin(angle)*span);
         rig.rotation.set(.09+Math.sin(t*8+i)*.20,Math.PI/2-angle,-.13+Math.sin(t*7+i)*.27,'YXZ');
         rig.scale.setScalar(Math.min(1.12,.55+t*4,(1-t)*8));
       }

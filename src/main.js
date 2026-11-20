@@ -127,8 +127,12 @@ if(nightNumber===2){
 }
 if(nightNumber===3){
   model(scene,new T.CylinderGeometry(8,8,6,64),rockWall,0,3,0);
-  model(scene,new T.CircleGeometry(8,64),turf,0,6.013,0).rotation.x=-Math.PI/2;
-  model(scene,new T.RingGeometry(12,24,64,1,Math.PI,Math.PI),turf,0,3.012,0).rotation.x=-Math.PI/2;
+  model(scene,new T.CircleGeometry(8,64),material('#7a6952'),0,6.013,0).rotation.x=-Math.PI/2;
+  model(scene,new T.RingGeometry(12,24,64,1,Math.PI,Math.PI),material('#4c7472',{map:turfTexture}),0,3.012,0).rotation.x=-Math.PI/2;
+  for(const [radius,y,half,color] of [[8,6,false,'#f6cf76'],[12,3,true,'#73cfde'],[24,3,true,'#73cfde']]){
+    model(scene,new T.RingGeometry(radius-.12,radius+.045,72,1,half?Math.PI:0,half?Math.PI:Math.PI*2),
+      flat(color,{toneMapped:false}),0,y+.045,0).rotation.x=-Math.PI/2;
+  }
   for(const r of [12,24]){
     model(scene,new T.CylinderGeometry(r,r,3,64,1,true,0,Math.PI),new T.MeshStandardMaterial({
       color:'#47485e',side:T.DoubleSide
@@ -144,16 +148,32 @@ if(nightNumber===3){
     geo.setAttribute('position',new T.Float32BufferAttribute(coords,3));
     geo.setIndex([0,1,2,1,3,2]);geo.computeVertexNormals();
     model(scene,geo,new T.MeshStandardMaterial({color:'#C9B48A',side:T.DoubleSide}),0,0,0);
+    for(const side of [-1,1]){
+      const start=new T.Vector3(30*Math.cos(theta)-side*1.45*Math.sin(theta),.09,30*Math.sin(theta)+side*1.45*Math.cos(theta));
+      const end=new T.Vector3(24*Math.cos(theta)-side*1.45*Math.sin(theta),3.09,24*Math.sin(theta)+side*1.45*Math.cos(theta));
+      const mid=start.clone().lerp(end,.5);
+      const trim=model(scene,cube,flat('#ffe2a0',{toneMapped:false}),mid.x,mid.y,mid.z,.10,.10,start.distanceTo(end));
+      trim.lookAt(end);
+    }
   }
   model(scene,new T.CylinderGeometry(1.6,2,8,12),rockWall,0,10,0);
   model(scene,new T.ConeGeometry(2.7,1.6,8),tile,0,14.8,0);
   model(scene,new T.CylinderGeometry(.75,1.03,1.2,12),gold,0,13.5,0);
 }
+const padMarkers=[];
 for(const {pos:[x,y,z]} of island.pads){
   const pad=model(scene,new T.CylinderGeometry(1,.88,.14,24),tile,x,y+.07,z);
   const mark=model(scene,new T.RingGeometry(.76,.94,36),flat('#F2C14E'),0,.081,0,1,1,1,pad);
   mark.rotation.x=-Math.PI/2;
-  sprite(scene,x,y+.5,z,3,3,'#9cdfff',.63);
+  sprite(scene,x,y+.5,z,5,4,'#58eaff',.73);
+  const signal=new T.Group();
+  scene.add(signal);signal.position.set(x,y+.52,z);
+  const tube=new T.TorusGeometry(.65,.050,6,24);
+  for(let j=0;j<3;j++)model(signal,tube,flat('#98ffff',{toneMapped:false}),0,j*.34,0).rotation.x=-Math.PI/2;
+  const arrow=model(signal,new T.ConeGeometry(.31,.53,4),flat('#e1ffff',{toneMapped:false}),0,1.25,0);
+  arrow.rotation.y=Math.PI/4;
+  padMarkers.push({signal,y});
+
 }
 
 const clouds = new T.ShaderMaterial({
@@ -225,13 +245,13 @@ function scatter() {
     if(!byTrail && v<.15) {
       const lift=.35+size*.15;
       prop('rocks',stone,graphite,x,y+lift*.28,z,size*.75,lift,size*.62,random()*6);
-      addObstacle(x,z,size*.64,lift*1.22);
+      if(size>1.53)addObstacle(x,z,size*.50,lift*1.22);
     } else if(!byTrail && v<.57){
       const theme=(x>18&&z>-15)||Math.sin(x*.18+z*.08)>.6 ? 1 : (z>12&&Math.cos(z*.17)>.02 ? 2 : 0);
       const palette=palettes[theme];
       const tree={x,y,z,radius:size*1.44};
       prop('trunks',trunk,timber,x,y+size*1.25,z,size,size*2.5,size,0,tree);
-      addObstacle(x,z,size*.27,Infinity);
+      if(size>1.35&&i%3!==0)addObstacle(x,z,size*.23,Infinity);
       for(let j=0;j<3;j++){
         const width=size*(1.34-j*.25);
         if(theme===0){
@@ -664,6 +684,19 @@ function map(){
     nav.beginPath();nav.arc(mx(zone.x),mid,zone.radius*scale,0,Math.PI*2);
     nav.fillStyle='#2f5d5070';nav.fill();nav.strokeStyle='#c9b48a64';nav.stroke();
   }
+  if(nightNumber===3){
+    nav.lineWidth=1.5;
+    nav.beginPath();nav.arc(mx(0),mid,8*scale,0,Math.PI*2);
+    nav.strokeStyle='#f6cf76';nav.stroke();
+    nav.beginPath();nav.arc(mx(0),mid,24*scale,0,Math.PI);
+    nav.strokeStyle='#73cfde';nav.stroke();
+    for(const a of [Math.PI/6,5*Math.PI/6]){
+      nav.beginPath();nav.moveTo(mx(30*Math.cos(a)),mid+30*Math.sin(a)*scale);
+      nav.lineTo(mx(24*Math.cos(a)),mid+24*Math.sin(a)*scale);
+      nav.strokeStyle='#ffe2a0';nav.stroke();
+    }
+    nav.lineWidth=1;
+  }
   for(const points of mapPaths){
     nav.beginPath();
     points.forEach(p=>nav.lineTo(mx(p.x),mid+p.z*scale));
@@ -673,12 +706,26 @@ function map(){
     nav.beginPath();nav.arc(mx(l.pos[0]),mid+l.pos[2]*scale,4.5,0,Math.PI*2);
     nav.fillStyle=l.lit?'#ffc671':'#bf91ee';nav.fill();
   });
+  for(const pad of island.pads){
+    const x=mx(pad.pos[0]),y=mid+pad.pos[2]*scale;
+    nav.beginPath();nav.moveTo(x,y-5);nav.lineTo(x+4,y+3);nav.lineTo(x-4,y+3);nav.closePath();
+    nav.fillStyle='#89f8ff';nav.fill();
+  }
+  for(const enemy of game.shades){
+    nav.beginPath();nav.arc(mx(enemy.pos[0]),mid+enemy.pos[2]*scale,2.9,0,Math.PI*2);
+    nav.fillStyle=enemy.state==='stunned'?'#a591cc':'#ff627b';nav.fill();
+  }
+  for(const enemy of game.drifters){
+    if(enemy.state==='removed')continue;
+    nav.fillStyle='#acbbff';nav.fillRect(mx(enemy.pos[0])-2,mid+enemy.pos[2]*scale-2,4,4);
+  }
   nav.beginPath();nav.arc(mx(game.player.pos[0]),mid+game.player.pos[2]*scale,4,0,Math.PI*2);
   nav.fillStyle='#dcfff7';nav.fill();
 }
 
 let visualTick=-1;
 function populate(time){
+  padMarkers.forEach(({signal,y},i)=>{signal.position.y=y+.47+Math.sin(time*3+i)*.20;signal.rotation.y=time*.8;});
   if(visualTick!==game.simTick){
     visualTick=game.simTick;
     const active=new Set(game.motes.map(m=>m.id));
@@ -722,6 +769,13 @@ function populate(time){
     const driftX=Math.sin(time*.79+phase)*.34;
     const driftZ=Math.cos(time*.62+phase)*.32;
     g.position.set(m.pos[0]+driftX,m.pos[1]+.85+Math.sin(time*1.31+phase)*.43,m.pos[2]+driftZ);
+    const [px,py,pz]=game.player.pos;
+    const distance=Math.hypot(px-m.pos[0],pz-m.pos[2]);
+    if(distance<3.4&&Math.abs(py-m.pos[1])<=1.5&&game.player.carried<tuning.carry_capacity){
+      const pull=(3.4-distance)/1.35;
+      g.position.x+=(px-g.position.x)*pull;
+      g.position.z+=(pz-g.position.z)*pull;
+    }
     g.rotation.y=time*1.03+phase;
     g.userData.wings.forEach((wing,i)=>{wing.rotation.z=Math.sin(time*14+phase)*.55*(i ? 1 : -1);});
   }
@@ -788,6 +842,7 @@ renderer.setAnimationLoop(now=>{
       if(e.name==='pulse'){
         pulseAge=0;
         dragons.start(...game.player.pos);
+        pulseRing.position.set(game.player.pos[0],game.player.pos[1]+.22,game.player.pos[2]);
       }
       audio.play(e.name==='game_over'?e.data.result:e.name);
     }
@@ -849,7 +904,6 @@ renderer.setAnimationLoop(now=>{
   if(running)pulseAge+=dt;
   dragons.update(pulseAge);
   pulseRing.visible=pulseAge<.65;
-  pulseRing.position.set(px,py+.42,pz);
   pulseRing.scale.setScalar(Math.max(.2,pulseAge/.65*tuning.pulse_radius));
   pulseRing.material.opacity=Math.max(0,1-pulseAge/.65);
   if(settings.quality!=='light')clouds.uniforms.time.value=time;

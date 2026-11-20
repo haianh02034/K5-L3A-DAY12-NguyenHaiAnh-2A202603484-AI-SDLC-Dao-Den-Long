@@ -183,7 +183,7 @@ function driveShade(g,s,lit,resolve) {
     [dx,dz]=s.direction.map(v=>v*2/60);
   }else{
     const d=distance(p,s.pos);
-    const speed=(g.night===3?4.5:4)/hz;
+    const speed=(g.night===3?4.5:4)*(g.browser?.86:1)/hz;
     const notice=g.browser?(g.practice?48:40):(g.practice?21:12);
     const leash=g.browser?(g.practice?65:56):(g.practice?29:18);
     if(d<=notice||(s.state==='chase'&&d<=leash)){
@@ -310,7 +310,7 @@ export function step(g,input=idleInput,resolve=null){
   movePlayer(g,input,pressed,emit,resolve);
   if(!p.fall&&p.flames>0){
     g.motes=g.motes.filter(m=>{
-      if(p.carried>=10||m.available>g.simTick||!inReach(m.pos,p.pos,1))return true;
+      if(p.carried>=10||m.available>g.simTick||!inReach(m.pos,p.pos,g.browser?2.05:1))return true;
       if(g.spotCooldowns&&m.kind==='random')g.spotCooldowns.set(m.pos.join(','),g.simTick+18*hz);
       emit('mote_picked',{carried:++p.carried});return false;
     });

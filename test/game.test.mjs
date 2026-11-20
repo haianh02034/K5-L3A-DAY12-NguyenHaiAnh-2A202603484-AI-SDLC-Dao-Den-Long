@@ -199,3 +199,12 @@ test('browser shades notice Mây earlier and patrol inward from distant shores',
   for(let i=0;i<70;i++)step(distant);
   assert.ok(distant.shades[0].pos[0]<35);
 });
+
+test('browser play pulls nearby motes and shades advance a little slower', () => {
+  const scenario={...quiet,motes:[[1.8,0,0]],shades:[{pos:[8,0,0]}]};
+  const browser=createGame(4,scenario,1,false,true), headless=createGame(4,scenario);
+  step(browser);step(headless);
+  assert.equal(browser.player.carried,1);
+  assert.equal(headless.player.carried,0);
+  assert.ok(browser.shades[0].pos[0]>headless.shades[0].pos[0]);
+});
