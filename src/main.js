@@ -249,7 +249,7 @@ function scatter() {
     } else if(!byTrail && v<.57){
       const theme=(x>18&&z>-15)||Math.sin(x*.18+z*.08)>.6 ? 1 : (z>12&&Math.cos(z*.17)>.02 ? 2 : 0);
       const palette=palettes[theme];
-      const tree={x,y,z,radius:size*1.44};
+      const tree={x,y,z,trunkRadius:size*.23,height:size*2.5};
       prop('trunks',trunk,timber,x,y+size*1.25,z,size,size*2.5,size,0,tree);
       if(size>1.35&&i%3!==0)addObstacle(x,z,size*.23,Infinity);
       for(let j=0;j<3;j++){
@@ -293,19 +293,13 @@ let nextTreeUpdate=0;
 function revealPlayer(now,x,y,z){
   if(now<nextTreeUpdate)return;
   nextTreeUpdate=now+70;
-  const angle=Math.hypot(camera.position.x-x,camera.position.z-z);
-  const ux=(camera.position.x-x)/Math.max(1,angle),uz=(camera.position.z-z)/Math.max(1,angle);
-  const slope=(camera.position.y-y)/Math.max(1,angle);
   for(const {mesh,matrices,trees,hidden} of treeBatches){
     let dirty=false;
     for(let i=0;i<trees.length;i++){
       const tree=trees[i],dx=tree.x-x,dz=tree.z-z;
-      const reach=tree.radius+(hidden[i]?1.08:.60);
-      const near=dx*dx+dz*dz<=reach*reach;
-      const along=dx*ux+dz*uz;
-      const side=Math.abs(-dx*uz+dz*ux);
-      const mustHide=Math.abs(tree.y-y)<4.3&&(near||(along>0&&along<9&&side<reach&&
-        y+along*slope<=tree.y+tree.radius*2.95))?1:0;
+      const contact=tree.trunkRadius+(hidden[i]?.50:.40);
+      const withinTrunkHeight=y>=tree.y-.3&&y<=tree.y+tree.height;
+      const mustHide=withinTrunkHeight&&dx*dx+dz*dz<=contact*contact?1:0;
       if(mustHide===hidden[i])continue;
       hidden[i]=mustHide;
       mesh.setMatrixAt(i,mustHide?hiddenTreeMatrix:matrices[i]);
@@ -546,7 +540,7 @@ const charmScenes=island.charms.map(([x,y,z])=>{
   return group;
 });
 const leaves=Array.from({length:24},()=>model(scene,stone,flat('#b9ac65'),0,0,0,.19,.05,.10));
-const aim=new T.Vector3(game.player.pos[0],0,game.player.pos[2]+3);
+const aim=new T.Vector3(game.player.pos[0],1,game.player.pos[2]-3);
 const offset=new T.Vector3(0,26,30);
 const keys=new Set();
 const bindings=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
@@ -587,7 +581,7 @@ function reset(){
   drifterScenes.clear();moteScenes=new Map();shadeScenes=new Map();
   game=createGame(island.seed,{},nightNumber,practice,true);
   priorPosition=[...game.player.pos];nextHud=0;accumulator=0;
-  aim.set(game.player.pos[0],0,game.player.pos[2]+3);target=null;pulseAge=2;lastCountdown=11;lastWind=false;
+  aim.set(game.player.pos[0],1,game.player.pos[2]-3);target=null;pulseAge=2;lastCountdown=11;lastWind=false;
   ui.pause.hidden=false;
   show('playing');audio.start();
 }
@@ -872,9 +866,10 @@ renderer.setAnimationLoop(now=>{
   shadow.position.y=groundY+.06;
   actor.visible=!game.player.invuln||Math.floor(game.tick/5)%2===0;
   carriedLight.position.set(px,Math.max(0,py)+2.4,pz);
-  aim.lerp(cameraTarget.set(px,Math.max(0,py),pz+3),1-Math.exp(-dt*5));
   const theta=yawDeg*Math.PI/180;
-  offset.set(viewDistance*Math.sin(theta),viewDistance*.80,viewDistance*Math.cos(theta));
+  const sin=Math.sin(theta),cos=Math.cos(theta);
+  aim.lerp(cameraTarget.set(px-3*sin,Math.max(0,py)+1,pz-3*cos),1-Math.exp(-dt*5));
+  offset.set(viewDistance*sin,viewDistance*.62,viewDistance*cos);
   camera.position.copy(aim).addScaledVector(offset,camera.aspect<.74?1.21:1);
   camera.lookAt(aim);
   revealPlayer(now,px,py,pz);
