@@ -12,7 +12,7 @@ test('headless writes deterministic snapshots, events and terminal state', async
     const inputs = join(folder, 'inputs.json');
     const out = join(folder, 'out.jsonl');
     await writeFile(scenario, JSON.stringify({
-      random_motes: false, random_shades: false, player: { carried: 7 },
+      random_motes: false, random_shades: false, player: { carried: 10 },
       lanterns: [
         { id: 'L1', pos: [0, 0, 0] },
         ...[2, 3, 4, 5].map(i => ({ id: 'L' + i, lit: true })),
@@ -31,8 +31,8 @@ test('headless writes deterministic snapshots, events and terminal state', async
     assert.equal(records[0].tick, 0);
     assert.equal(records[0].score, 0);
     assert.deepEqual(records.filter(r => r.type === 'event').map(r => [r.tick, r.name]),
-      [[1, 'deposit'], [1, 'lantern_lit'], [1, 'game_over']]);
-    assert.deepEqual(records.at(-1), { type: 'end', ticks: 1, state: 'won', score: 1338 });
+      [[0, 'night_start'], [1, 'deposit'], [1, 'lantern_lit'], [1, 'game_over']]);
+    assert.deepEqual(records.at(-1), { type: 'end', ticks: 1, state: 'won', score: 948 });
     await writeFile(inputs, JSON.stringify({ frames: [{ tick: 0 }, { tick: 0 }] }));
     const invalid = run();
     assert.equal(invalid.status, 2);

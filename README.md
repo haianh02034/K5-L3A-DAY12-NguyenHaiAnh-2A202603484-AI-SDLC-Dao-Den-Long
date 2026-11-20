@@ -1,6 +1,6 @@
 # Đảo Đèn Lồng
 
-## Chạy Đêm 1 · Đảo Bến
+## Chơi Ba Hòn Đảo
 
 Dùng Node.js 24. Từ thư mục repo:
 
@@ -10,25 +10,24 @@ npm run build
 npm start
 ```
 
-Mở http://127.0.0.1:4173. Có thể mở trực tiếp `dist/index.html` để chơi offline trên trình duyệt có WebGL 2.
+Mở http://127.0.0.1:4173 hoặc mở trực tiếp `dist/index.html` trong trình duyệt có WebGL 2. Vào menu, chọn **Bắt đầu** và thắp toàn bộ đèn để mở Đêm kế tiếp. Khi thua, có thể chơi lại Đêm đó. Tag `phase-1` chứa bản Đảo Bến ban đầu.
 
-- WASD hoặc phím mũi tên để di chuyển, Space để nhảy, E để nạp đèn, Q để tỏa sáng, Esc để tạm dừng hoặc tiếp tục. Có thể nhấp vào mặt đất để di chuyển. Nhảy qua đá thấp và đi vòng qua thân cây.
-- Trên màn hình cảm ứng, chạm lên mặt đất để di chuyển và dùng các nút hành động.
-- Gom ánh sáng và thắp cả năm đèn trước bình minh. Điểm gồm 10 mỗi đom đóm, 200 mỗi đèn, 30 mỗi Bóng Mực bị choáng. Khi thắng, cộng 2 mỗi giây nguyên còn lại và 100 mỗi sinh lực còn lại.
+- **WASD / phím mũi tên** để đi, **Space** để nhảy, **Shift** để lướt, **E** để nạp đèn, **Q** để tỏa sáng, **Esc / P** để tạm dừng. Nhấp lên mặt đất để chọn điểm đi, hoặc giữ chuột phải và kéo để xoay camera.
+- Nạp 10 đom đóm cho mỗi đèn. Điểm gồm 10 mỗi đom đóm đã nạp, 100 mỗi đèn, 5 mỗi Bóng Mực trúng Tỏa Sáng. Khi thắng một Đêm, cộng 2 mỗi giây nguyên còn lại và 50 mỗi Ngọn Lửa còn lại. Tổng điểm chỉ cộng các Đêm đã thắng.
 
 ## Kiểm thử
 
-Chạy `npm test`. Thông số chấm điểm và lệnh chính thức có trong [game.contract.json](game.contract.json).
+Chạy `npm test`. Xem [Test Contract v1.1](game.contract.json) và [ghi chép Phase 2](docs/phase-2.md).
 
 ```sh
-node scripts/headless.mjs --seed 42 --night 1 --ticks 120 --snapshot-every 60 --out replay.jsonl
+node scripts/headless.mjs --seed 42 --night 2 --ticks 1200 --snapshot-every 60 --out replay.jsonl
 ```
 
-Có thể thêm `--scenario scenario.json` và `--inputs inputs.json` để chạy kịch bản riêng. Xem [giả định và kiểm chứng](docs/phase-1.md).
+`--night` nhận 1, 2 hoặc 3. Có thể thêm `--scenario scenario.json` và `--inputs inputs.json`. Khoảng cách và chuyển động dùng hệ tọa độ XZ, Y hướng lên. Đom đóm ngẫu nhiên không hết hạn nên có `ttl_s: null`.
 
 ## Sáng tạo của tôi
 
-Đảo Bến có đường kính khoảng 192 m, năm đền có tên riêng, đường đá trong rừng, vách đá lơ lửng trên biển mây và bản đồ nhỏ. Mây mặc áo chàm, khăn đỏ và nón lá treo đèn. Biển mây, công trình và hoạt ảnh chỉ hiển thị trong bản 3D. Các bài kiểm tra mô phỏng và CLI chạy độc lập với WebGL.
+Rừng nhiều màu, hiệu ứng biển mây, Mây mặc áo vải sáng với khăn đỏ và nón lá treo đèn, Bóng Mực mang dáng ninja tím đen. Đèn có quầng sáng độc lập. Các chi tiết hình ảnh và âm thanh tổng hợp chỉ chạy trong trình duyệt.
 
 > **Cá nhân** (1 người / 1 MSSV) · Áp dụng SDLC cùng AI để xây một **game 3D** qua **4 phase**, từ yêu cầu ban đầu tới bản phát hành.
 > **Lab board + trợ giảng:** **[Đảo Đèn Lồng Lab](https://claude.ai/artifact/Q1RYyv1dxjUczzCbd2ZnoW)**

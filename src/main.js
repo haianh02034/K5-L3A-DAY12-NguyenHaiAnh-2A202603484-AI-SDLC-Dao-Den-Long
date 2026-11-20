@@ -1,11 +1,17 @@
 import * as T from 'three';
-import island from './island.json';
+import { maps, surface } from './maps.mjs';
+import { createAudio } from './audio.mjs';
+
+const night = Number(location.hash.slice(1)) || 1;
+const island = maps[night-1] ?? maps[0];
+const nightNumber = maps.indexOf(island)+1;
+const floor = (x,z) => surface(nightNumber,x,z);
 import { slideMovement } from './collision.mjs';
 import { createGame, idleInput, seeded, step, timeLeft, tuning } from './game.mjs';
 
 const scene = new T.Scene();
-scene.background = new T.Color('#242746');
-scene.fog = new T.FogExp2('#30324b', 0.008);
+scene.background = new T.Color('#0E1430');
+scene.fog = new T.FogExp2('#1B2350', 0.008);
 const camera = new T.PerspectiveCamera(42, 1, 0.1, 550);
 const ui = Object.fromEntries([...document.querySelectorAll('[id]')].map(e => [e.id, e]));
 let renderer;
@@ -26,20 +32,20 @@ const cube = new T.BoxGeometry();
 const orb = new T.SphereGeometry(1, 24, 14);
 const stone = new T.DodecahedronGeometry(1, 0);
 const needle = new T.ConeGeometry(1, 1, 8);
-const timber = material('#442c3e');
+const timber = material('#6B4A2F');
 const tile = material('#295064', {metalness: 0.23});
 const trim = material('#a15a49', {metalness: 0.25});
 const graphite = material('#53617a', {flatShading: true});
-const amber = flat('#ffd386', {toneMapped:false});
-const blue = material('#287a89');
-const crimson = material('#a84145');
+const amber = flat('#FFE9B0', {toneMapped:false});
+const blue = material('#E8E2D0');
+const crimson = material('#C8102E');
 const ink = material('#27233a');
 const skin = material('#dca282');
-const gold = material('#dcab66', {metalness: 0.35});
-const lampDark = material('#603b65', {emissive:'#6b3666', emissiveIntensity:0.48});
-const ambient = new T.HemisphereLight('#b5bcff','#534051', 2.0);
+const gold = material('#F2C14E', {metalness: 0.35});
+const lampDark = material('#5B5F6E', {emissive:'#333644', emissiveIntensity:0.48});
+const ambient = new T.HemisphereLight('#b5bcff','#534051', 0.15);
 scene.add(ambient);
-const moon = new T.DirectionalLight('#a7d2ff', 2.2);
+const moon = new T.DirectionalLight('#b7c9ff', 1.45);
 moon.position.set(-30, 42, 17);
 scene.add(moon);
 
@@ -71,47 +77,55 @@ function sprite(parent, x, y, z, width, height, color, opacity, additive = true)
   return s;
 }
 function height(x,z) {
-  const r = Math.hypot(x,z) / island.radius;
-  return Math.sin(x * .12) * Math.cos(z * .11) * .37 +
-    Math.sin((x + z) * .33) * .15 - Math.max(0,(r-.92)/.08) ** 2 * 1.6;
+  const y=floor(x,z);
+  return Number.isFinite(y)?y:0;
 }
-function ground() {
-  const vertices = [], colors = [], triangles = [];
-  const size = 150, stride = size + 1;
-  const extent = island.radius + 5;
-  const inner = new T.Color('#4e7970'), outer = new T.Color('#4d5674');
-  const stoneColor = new T.Color('#78738b');
-  for (let row = 0; row <= size; row++) {
-    for (let col = 0; col <= size; col++) {
-      const x = (col / size * 2 - 1) * extent, z = (row / size * 2 - 1) * extent;
-      const radius = Math.hypot(x,z), a = Math.atan2(z,x);
-      const edge = island.radius + 1.6 + 1.3 * Math.cos(a * 9);
-      const r = radius / edge;
-      vertices.push(x,height(x,z),z);
-      const color = inner.clone().lerp(outer, .18 + .65 * (.5 + .5 * Math.sin(x*.081+z*.12)))
-        .lerp(stoneColor, Math.min(1,Math.max(0,(r-.84)/.16))).multiplyScalar(.85 + .14 * random());
-      colors.push(color.r,color.g,color.b);
-      const here = row * stride + col;
-      if (row && col && r < 1.014) {
-        triangles.push(here-stride-1,here-1,here-stride,here-stride,here-1,here);
-      }
+const turf=material('#2F5D50');
+const sand=material('#C9B48A');
+const rockWall=material('#47485e',{flatShading:true});
+for(const {x,radius} of island.zones){
+  model(scene,new T.CylinderGeometry(radius,radius*.94,7,96),rockWall,x,-3.5,0);
+  const top=model(scene,new T.CircleGeometry(radius,96),turf,x,.006,0);
+  top.rotation.x=-Math.PI/2;
+  const rim=model(scene,new T.RingGeometry(radius-.46,radius,96),sand,x,.012,0);
+  rim.rotation.x=-Math.PI/2;
+}
+if(nightNumber===2){
+  const bamboo=new T.CylinderGeometry(.18,.18,1,8);
+  for(let x=26;x<=44;x+=.38){
+    model(scene,bamboo,timber,x,-.18,0,1,4,1).rotation.x=Math.PI/2;
+  }
+}
+if(nightNumber===3){
+  model(scene,new T.CylinderGeometry(8,8,6,64),rockWall,0,3,0);
+  model(scene,new T.CircleGeometry(8,64),turf,0,6.013,0).rotation.x=-Math.PI/2;
+  model(scene,new T.RingGeometry(12,24,64,1,Math.PI,Math.PI),turf,0,3.012,0).rotation.x=-Math.PI/2;
+  for(const r of [12,24]){
+    model(scene,new T.CylinderGeometry(r,r,3,64,1,true,0,Math.PI),new T.MeshStandardMaterial({
+      color:'#47485e',side:T.DoubleSide
+    }),0,1.50,0);
+  }
+  for(const degrees of [30,150]){
+    const theta=degrees*Math.PI/180;
+    const coords=[];
+    for(const [r,v,y] of [[24,-1.5,3.01],[24,1.5,3.01],[30,-1.5,.01],[30,1.5,.01]]){
+      coords.push(r*Math.cos(theta)-v*Math.sin(theta),y,r*Math.sin(theta)+v*Math.cos(theta));
     }
+    const geo=new T.BufferGeometry();
+    geo.setAttribute('position',new T.Float32BufferAttribute(coords,3));
+    geo.setIndex([0,1,2,1,3,2]);geo.computeVertexNormals();
+    model(scene,geo,new T.MeshStandardMaterial({color:'#C9B48A',side:T.DoubleSide}),0,0,0);
   }
-  const geo = new T.BufferGeometry();
-  geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));
-  geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));
-  geo.setIndex(triangles);
-  const normals = [];
-  for (let i = 0; i < vertices.length; i += 3) {
-    const x = vertices[i], z = vertices[i + 2];
-    const normal = new T.Vector3(height(x - .25,z) - height(x + .25,z), .5,
-      height(x,z - .25) - height(x,z + .25)).normalize();
-    normals.push(normal.x, normal.y, normal.z);
-  }
-  geo.setAttribute('normal',new T.Float32BufferAttribute(normals,3));
-  model(scene,geo,material('#ffffff',{vertexColors:true}),0,0,0);
+  model(scene,new T.CylinderGeometry(1.6,2,8,12),rockWall,0,10,0);
+  model(scene,new T.ConeGeometry(2.7,1.6,8),tile,0,14.8,0);
+  model(scene,new T.CylinderGeometry(.75,1.03,1.2,12),gold,0,13.5,0);
 }
-ground();
+for(const {pos:[x,y,z]} of island.pads){
+  const pad=model(scene,new T.CylinderGeometry(1,.88,.14,24),tile,x,y+.07,z);
+  const mark=model(scene,new T.RingGeometry(.76,.94,36),flat('#F2C14E'),0,.081,0,1,1,1,pad);
+  mark.rotation.x=-Math.PI/2;
+  sprite(scene,x,y+.5,z,3,3,'#9cdfff',.63);
+}
 
 const clouds = new T.ShaderMaterial({
   uniforms:{time:{value:0}},
@@ -123,10 +137,10 @@ const clouds = new T.ShaderMaterial({
   void main(){vec2 p=world*.038+vec2(time*.055,time*.025);
   float n=noise(p)*.56+noise(p*2.1)*.29+noise(p*4.)*.15;
   float rim=clamp(length(world)/220.,0.,1.);
-  gl_FragColor=vec4(mix(vec3(.105,.133,.235),vec3(.47,.47,.63),smoothstep(.31,.77,n)*(.81-rim*.36)),1.);
+  gl_FragColor=vec4(mix(vec3(.071,.220,.290),vec3(.22,.35,.48),smoothstep(.31,.77,n)*(.81-rim*.36)),1.);
   }`
 });
-model(scene,new T.PlaneGeometry(650,650),clouds,0,-5,0).rotation.x = -Math.PI / 2;
+model(scene,new T.PlaneGeometry(650,650),clouds,0,-12,0).rotation.x = -Math.PI / 2;
 for (let i=0;i<34;i++) {
   const a=random()*Math.PI*2, r=106+random()*72;
   sprite(scene,Math.cos(a)*r,1+random()*7,Math.sin(a)*r,29+random()*38,8+random()*13,'#a2aacd',.24,false);
@@ -148,10 +162,11 @@ const paths = island.lanterns.map(({pos:[x,,z]},i) => new T.CatmullRomCurve3([
   new T.Vector3(.70*x-5*Math.sin(i),0,.72*z),new T.Vector3(x,0,z)
 ]));
 const trail = paths.flatMap(path => path.getPoints(35));
-const materialPath=material('#a49391',{flatShading:true});
+const materialPath=material('#C9B48A',{flatShading:true});
 for (const p of trail) {
   for (let j=0;j<3;j++) {
     const x=p.x+(random()-.5)*3.6,z=p.z+(random()-.5)*3.6;
+    if(!Number.isFinite(floor(x,z)))continue;
     prop('path',stone,materialPath,x,height(x,z)+.035,z,.31+random()*.52,.10,.32+random()*.37,random()*6.28);
   }
 }
@@ -164,12 +179,14 @@ function scatter() {
   ].map(colors=>colors.map(color=>material(color,{flatShading:true})));
   const herbs = ['#487761','#686b84','#8c9c55'].map(color=>material(color,{flatShading:true}));
   const flowers = ['#f1abb7','#e7be76','#bd9de5','#f8d7ae'].map(color=>material(color,{emissive:color,emissiveIntensity:.18}));
-  for(let i=0;i<2250;i++){
-    const a=random()*6.283,r=Math.sqrt(random())*(island.radius-2);
-    const x=Math.cos(a)*r,z=Math.sin(a)*r;
+  for(let i=0;i<(nightNumber===2?1440:920);i++){
+    const zone=island.zones[i%island.zones.length];
+    const a=random()*6.283,r=Math.sqrt(random())*(zone.radius-2);
+    const x=zone.x+Math.cos(a)*r,z=Math.sin(a)*r;
     const byTrail=trail.some(p=>Math.hypot(x-p.x,z-p.z)<2.7);
     const byShrine=island.lanterns.some(l=>Math.hypot(x-l.pos[0],z-l.pos[2])<6.4);
-    if(byShrine || Math.hypot(x,z)<3.5) continue;
+    const byLandmark=[...island.pads.map(p=>p.pos),...island.charms].some(p=>Math.hypot(x-p[0],z-p[2])<3.5);
+    if(byShrine||byLandmark||Math.hypot(x-(island.spawn?.[0]??0),z-(island.spawn?.[2]??0))<3.5||(nightNumber===3&&height(x,z)>0)) continue;
     const y=height(x,z), size=.64+random()*1.40, v=random();
     if(!byTrail && v<.15) {
       const lift=.35+size*.15;
@@ -215,22 +232,11 @@ scatter();
 
 const cliff = material('#3e3c56',{flatShading:true});
 const needleRidge = new T.CylinderGeometry(.36,1,1,7);
-for (let i=0;i<82;i++) {
-  const a=i/82*Math.PI*2;
-  const r=island.radius+1.5+random()*2.8;
-  const x=Math.cos(a)*r,z=Math.sin(a)*r;
-  const ledge=model(scene,needleRidge,cliff,x,-3.4-random()*1.5,z,2.2+random()*1.2,5+random()*4,2.1+random()*1.3);
-  ledge.rotation.z=(random()-.5)*.55;
-}
-for (const [x,z] of [[-69,-48],[-57,53],[47,-62],[73,33],[-5,85]]) {
-  for (let i=0;i<5;i++) {
-    const a=i/5*Math.PI*2;
-    const px=x+Math.cos(a)*4.9,pz=z+Math.sin(a)*4.5;
-    const span=5.1+random()*5.2;
-    const monolith=model(scene,needleRidge,cliff,px,height(px,pz)+span*.42,pz,1.6+random(),span,1.5+random());
-    monolith.rotation.z=(random()-.5)*.32;
-    addObstacle(px,pz,1.12,Infinity);
-  }
+for(const zone of island.zones)for(let i=0;i<44;i++){
+  const a=i/44*Math.PI*2, r=zone.radius+.64+random()*1.1;
+  const x=zone.x+Math.cos(a)*r,z=Math.sin(a)*r;
+  const ledge=model(scene,needleRidge,cliff,x,-4.5-random()*1.5,z,1.8+random(),5+random()*4,1.8+random());
+  ledge.rotation.z=(random()-.5)*.46;
 }
 
 function pagoda(x,z,index) {
@@ -238,6 +244,7 @@ function pagoda(x,z,index) {
   scene.add(group);
   group.position.set(x,height(x,z),z);
   group.rotation.y=index*.39;
+  group.scale.setScalar(.68);
   const cylinder=new T.CylinderGeometry(1,1,1,12);
   for(let j=0;j<3;j++) model(group,cylinder,graphite,0,.17+j*.3,0,4.2-j*.69,.31,4.2-j*.69);
   for(const a of [-1,1]) for(const b of [-1,1]) {
@@ -266,7 +273,7 @@ function pagoda(x,z,index) {
     model(group,cube,gold,Math.cos(a)*.81,2.66,Math.sin(a)*.81,.055,1.55,.055);
   }
   const halo=sprite(group,0,2.61,0,8,8,'#bd77e7',.23);
-  const disk=model(group,new T.RingGeometry(8.9,9.04,72),flat('#ffc47d',{transparent:true,opacity:.55,side:T.DoubleSide}),0,.08,0);
+  const disk=model(group,new T.RingGeometry(8.72,8.91,72),flat('#ffc47d',{transparent:true,opacity:.55,side:T.DoubleSide}),0,.08,0);
   disk.rotation.x=-Math.PI/2;
   disk.visible=false;
   const pool = model(group,new T.PlaneGeometry(27,27,16,16),flat('#ffb35a',{
@@ -288,6 +295,7 @@ const shrines=island.lanterns.map((l,i)=>pagoda(l.pos[0],l.pos[2],i));
 for(const path of paths) {
   for(const n of [.25,.55,.77]){
     const p=path.getPoint(n);
+    if(!Number.isFinite(floor(p.x,p.z))) continue;
     const x=p.x+2.4,z=p.z-1.1,y=height(x,z);
     model(scene,cube,timber,x,y+.67,z,.19,1.34,.19);
     model(scene,cube,amber,x,y+1.38,z,.38,.35,.38);
@@ -354,13 +362,13 @@ let pulseAge=1;
 function mote() {
   const g=new T.Group();
   scene.add(g);
-  model(g,orb,amber,0,0,0,.16,.24,.16);
+  model(g,orb,flat('#FFF6C2',{toneMapped:false}),0,0,0,.16,.24,.16);
   const wing=flat('#fff1c4',{transparent:true,opacity:.65});
   g.userData.wings=[-1,1].map(side=>model(g,orb,wing,side*.19,.03,0,.19,.034,.09));
-  sprite(g,0,0,0,2.8,2.8,'#ffd66a',.88);
+  sprite(g,0,0,0,2.8,2.8,'#FFE58A',.88);
   return g;
 }
-const ninjaBlack=material('#10101b');
+const ninjaBlack=material('#120A1A');
 const ninjaWrap=material('#292139',{flatShading:true});
 const ninjaSteel=material('#aa8fb3',{metalness:.38,roughness:.31});
 const ninjaEyes=flat('#dfa6fb',{toneMapped:false});
@@ -402,60 +410,116 @@ function shade() {
     return foot;
   });
   const scarf=model(body,cube,ninjaWrap,-.17,1.76,-.64,.18,.065,.90);
-  const halo=sprite(g,0,1.17,-.48,5.4,5.4,'#8750bc',.37);
+  const halo=sprite(g,0,1.17,-.48,5.4,5.4,'#7A3CFF',.37);
   return {g,halo,body,feet,scarf,bladeArm};
 }
 
-let game=createGame();
+const read=(storage,key,fallback)=>{
+  try{return window[storage].getItem(key)??fallback;}catch{return fallback;}
+};
+const write=(storage,key,value)=>{try{window[storage].setItem(key,String(value));}catch{}};
+const settings={
+  volume:Number(read('localStorage','island-volume',.45)),
+  sensitivity:Number(read('localStorage','island-sensitivity',1)),
+};
+const audio=createAudio(()=>settings.volume);
+for(const id of ['volume','sensitivity']){
+  ui[id].value=settings[id];
+  ui[id].addEventListener('input',()=>{
+    settings[id]=Number(ui[id].value);write('localStorage','island-'+id,settings[id]);
+  });
+}
+let game=createGame(island.seed,{},nightNumber);
+const campaignTotal=nightNumber===1?0:Number(read('sessionStorage','island-score',0));
 let moteScenes=new Map(), shadeScenes=new Map();
-const aim=new T.Vector3(0,0,-6);
-const offset=new T.Vector3(0,30,38);
+const drifterScenes=new Map();
+const charmScenes=island.charms.map(([x,y,z])=>{
+  const group=new T.Group();
+  scene.add(group);group.position.set(x,y+.9,z);
+  model(group,cube,flat('#F2C14E'),0,0,0,.6,.82,.07);
+  model(group,cube,flat('#C8102E'),0,0,.045,.49,.71,.03);
+  sprite(group,0,0,-.06,2.6,2.6,'#F2C14E',.53);
+  return group;
+});
+const leaves=Array.from({length:24},()=>model(scene,stone,flat('#b9ac65'),0,0,0,.19,.05,.10));
+const aim=new T.Vector3(game.player.pos[0],0,game.player.pos[2]+3);
+const offset=new T.Vector3(0,26,30);
 const keys=new Set();
-const bindings=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyE','KeyQ','KeyR','Escape']);
-const actions={jump:false,interact:false,pulse:false};
-const keyActions={Space:'jump',KeyE:'interact',KeyQ:'pulse'};
+const bindings=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
+  'Space','KeyE','KeyQ','Escape','KeyP','ShiftLeft','ShiftRight']);
+const actions={jump:false,interact:false,pulse:false,dash:false};
+const keyActions={Space:'jump',KeyE:'interact',KeyQ:'pulse',ShiftLeft:'dash',ShiftRight:'dash'};
 const pointer=new T.Raycaster();
 const plane=new T.Plane(new T.Vector3(0,1,0),0);
 let target=null;
-let paused=false;
-function togglePause() {
-  if(game.state!=='playing') return;
-  paused=!paused;
+let view=location.hash?'intro':'menu';
+let settingsFrom='menu';
+let yawDeg=0;
+let lastCountdown=11;
+let lastWind=false;
+function show(name) {
+  view=name;
+  for(const panel of ['menu','intro','breakscreen','settings','ending'])ui[panel].hidden=panel!==name;
+  ui.hud.hidden=!['playing','breakscreen','ending'].includes(name);
   keys.clear();
-  for(const key of Object.keys(actions)) actions[key]=false;
-  ui.pause.textContent=paused?'Tiếp tục':'Tạm dừng';
-  ui.pause.setAttribute('aria-pressed',String(paused));
-  ui.breakscreen.hidden=!paused;
+  for(const key of Object.keys(actions))actions[key]=false;
 }
+function go(number){
+  const url=new URL(location.href);
+  url.hash=number?'#'+number:'';
+  location.replace(url.href);
+  location.reload();
+}
+function togglePause(){
+  if(game.state!=='playing')return;
+  if(view==='playing')show('breakscreen');
+  else if(view==='breakscreen'){audio.start();show('playing');}
+}
+function reset(){
+  for(const m of moteScenes.values())scene.remove(m);
+  for(const s of shadeScenes.values())scene.remove(s.g);
+  for(const d of drifterScenes.values())scene.remove(d);
+  drifterScenes.clear();moteScenes=new Map();shadeScenes=new Map();
+  game=createGame(island.seed,{},nightNumber);
+  priorPosition=[...game.player.pos];nextHud=0;accumulator=0;
+  aim.set(game.player.pos[0],0,game.player.pos[2]+3);target=null;pulseAge=1;lastCountdown=11;lastWind=false;
+  ui.pause.hidden=false;
+  show('playing');audio.start();
+}
+ui['intro-night'].textContent='Đêm '+nightNumber+' / 3';
+ui['intro-title'].textContent=island.name;
+ui['intro-words'].textContent='Ông Đăng: “'+island.words+'”';
+ui['night-label'].textContent='Đêm '+nightNumber+' · '+island.name;
+for(let i=0;i<10;i++){
+  const slot=document.createElement('span');slot.className='slot';ui.slots.append(slot);
+}
+ui['new-game'].addEventListener('click',()=>{
+  write('sessionStorage','island-score',0);audio.start();show('intro');
+});
+for(const from of ['menu','pause']){
+  ui[from+'-settings'].addEventListener('click',()=>{settingsFrom=from==='pause'?'breakscreen':'menu';show('settings');});
+}
+ui.back.addEventListener('click',()=>show(settingsFrom));
+ui.play.addEventListener('click',reset);
 ui.pause.addEventListener('click',togglePause);
 ui.resume.addEventListener('click',togglePause);
-
-function reset(){
-  for(const m of moteScenes.values()) scene.remove(m);
-  for(const s of shadeScenes.values()) scene.remove(s.g);
-  moteScenes=new Map();
-  shadeScenes=new Map();
-  game=createGame();
-  priorPosition=[...game.player.pos];
-  nextHud=0;
-  keys.clear();
-  for(const key of Object.keys(actions)) actions[key]=false;
-  aim.set(0,0,-6);
-  pulseAge=1;
-  target=null;
-  ui.ending.hidden=true;
-  ui.pause.hidden=false;
-}
 ui.restart.addEventListener('click',reset);
+ui.replay.addEventListener('click',reset);
+for(const id of ['pause-menu','end-menu'])ui[id].addEventListener('click',()=>go(0));
+ui.next.addEventListener('click',()=>{
+  if(game.state==='won'&&nightNumber<3){
+    write('sessionStorage','island-score',campaignTotal+game.score);go(nightNumber+1);
+  }
+});
+show(view);
 addEventListener('keydown',e=>{
   if(!bindings.has(e.code))return;
   e.preventDefault();
-  if(e.code==='Escape') {
+  if(e.code==='Escape'||e.code==='KeyP') {
     if(!e.repeat) togglePause();
     return;
   }
-  if(paused) return;
-  if(e.code==='KeyR'&&game.state!=='playing'){reset();return;}
+  if(view!=='playing') return;
   keys.add(e.code);
   if(keyActions[e.code]&&!e.repeat)actions[keyActions[e.code]]=true;
   if(!keyActions[e.code])target=null;
@@ -463,14 +527,18 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 renderer.domElement.addEventListener('pointerdown',e=>{
-  if(e.button!==0||paused||game.state!=='playing')return;
+  if(e.button!==0||view!=='playing'||game.state!=='playing')return;
   pointer.setFromCamera(new T.Vector2(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2),camera);
+  plane.constant=-Math.max(0,game.player.pos[1]);
   target=pointer.ray.intersectPlane(plane,new T.Vector3());
-  if(target&&target.length()>island.radius)target.setLength(island.radius);
+});
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(view==='playing'&&(e.buttons&2))yawDeg-=e.movementX*.28*settings.sensitivity;
 });
 const mobile=matchMedia('(pointer: coarse)');
-for(const [id,key] of [['jump','jump'],['interact','interact'],['pulse','pulse']]){
-  ui[id].addEventListener('click',()=>{if(!paused)actions[key]=true;});
+for(const [id,key] of [['jump','jump'],['interact','interact'],['pulse','pulse'],['dash','dash']]){
+  ui[id].addEventListener('click',()=>{if(view==='playing')actions[key]=true;});
 }
 
 function resize(){
@@ -481,8 +549,6 @@ function resize(){
 addEventListener('resize',resize);
 resize();
 const key=(a,b)=>Number(keys.has(a)||keys.has(b));
-const cameraYaw=Math.atan2(offset.x,offset.z)*180/Math.PI;
-const radians=cameraYaw*Math.PI/180;
 let previous=performance.now(),accumulator=0;
 let walking=false;
 const nav=ui.map.getContext('2d');
@@ -492,38 +558,73 @@ const displayed=new T.Vector3();
 const cameraTarget=new T.Vector3();
 let priorPosition=[...game.player.pos];
 function map(){
-  const size=ui.map.width, mid=size/2, scale=(mid-14)/island.radius;
+  const size=ui.map.width, mid=size/2, scale=(mid-16)/(nightNumber===2?66:island.radius);
+  const center=nightNumber===2?35:0;
+  const mx=x=>mid+(x-center)*scale;
   nav.clearRect(0,0,size,size);
   nav.beginPath();nav.arc(mid,mid,mid-7,0,Math.PI*2);
   nav.fillStyle='#17192ce8';nav.fill();nav.strokeStyle='#c9abd356';nav.stroke();
+  for(const zone of island.zones){
+    nav.beginPath();nav.arc(mx(zone.x),mid,zone.radius*scale,0,Math.PI*2);
+    nav.fillStyle='#2f5d5070';nav.fill();nav.strokeStyle='#c9b48a64';nav.stroke();
+  }
   for(const points of mapPaths){
     nav.beginPath();
-    points.forEach(p=>nav.lineTo(mid+p.x*scale,mid+p.z*scale));
+    points.forEach(p=>nav.lineTo(mx(p.x),mid+p.z*scale));
     nav.strokeStyle='#dfc2bd40';nav.stroke();
   }
   game.lanterns.forEach(l=>{
-    nav.beginPath();nav.arc(mid+l.pos[0]*scale,mid+l.pos[2]*scale,4.5,0,Math.PI*2);
+    nav.beginPath();nav.arc(mx(l.pos[0]),mid+l.pos[2]*scale,4.5,0,Math.PI*2);
     nav.fillStyle=l.lit?'#ffc671':'#bf91ee';nav.fill();
   });
-  nav.beginPath();nav.arc(mid+game.player.pos[0]*scale,mid+game.player.pos[2]*scale,4,0,Math.PI*2);
+  nav.beginPath();nav.arc(mx(game.player.pos[0]),mid+game.player.pos[2]*scale,4,0,Math.PI*2);
   nav.fillStyle='#dcfff7';nav.fill();
 }
 
 function populate(time){
+  const active=new Set(game.motes.map(m=>m.id));
+  for(const [id,g] of moteScenes)if(!active.has(id)){scene.remove(g);moteScenes.delete(id);}
+  for(const [i,model] of charmScenes.entries()){
+    model.visible=game.charms[i]?.available??false;
+    model.rotation.y=time*1.8;
+  }
+  for(const d of game.drifters){
+    const existing=drifterScenes.get(d.id);
+    if(d.state==='removed'){if(existing){scene.remove(existing);drifterScenes.delete(d.id);}continue;}
+    if(!existing){
+      const ribbon=new T.Group();scene.add(ribbon);
+      for(let i=0;i<9;i++)model(ribbon,stone,drifterMaterial,0,0,i*.29,.42-i*.036,.09,.27);
+      drifterScenes.set(d.id,ribbon);
+    }
+    const ribbon=drifterScenes.get(d.id);
+    ribbon.position.set(...d.pos);
+    ribbon.lookAt(game.player.pos[0],d.pos[1],game.player.pos[2]);
+    ribbon.children.forEach((part,i)=>{part.position.x=Math.sin(time*7-i*.57)*i*.072;
+      part.position.y=Math.cos(time*7-i*.57)*i*.055;part.rotation.z=Math.sin(time*5+i*.31)*.63;});
+  }
+  const bearing=game.wind.dir_deg*Math.PI/180;
+  for(const [i,leaf] of leaves.entries()){
+    leaf.visible=game.wind.active||game.wind.warning;
+    if(!leaf.visible) continue;
+    const travel=(time*7+i*5)%70-35, side=(i*13)%43-21;
+    leaf.position.set(game.player.pos[0]+Math.cos(bearing)*travel-Math.sin(bearing)*side,
+      2+i%6,game.player.pos[2]+Math.sin(bearing)*travel+Math.cos(bearing)*side);
+    leaf.rotation.set(time+i,0,time*2+i);
+  }
   for(const m of game.motes){
     if(!moteScenes.has(m.id))moteScenes.set(m.id,mote());
     const g=moteScenes.get(m.id);
     const phase=Number(m.id.slice(1))*.77;
-    const driftX=Math.sin(time*.79+phase)*.77;
-    const driftZ=Math.cos(time*.62+phase)*.66;
-    g.position.set(m.pos[0]+driftX,height(m.pos[0],m.pos[2])+1.03+Math.sin(time*1.31+phase)*.43,m.pos[2]+driftZ);
+    const driftX=Math.sin(time*.79+phase)*.34;
+    const driftZ=Math.cos(time*.62+phase)*.32;
+    g.position.set(m.pos[0]+driftX,m.pos[1]+.85+Math.sin(time*1.31+phase)*.43,m.pos[2]+driftZ);
     g.rotation.y=time*1.03+phase;
     g.userData.wings.forEach((wing,i)=>{wing.rotation.z=Math.sin(time*14+phase)*.55*(i ? 1 : -1);});
   }
   for(const s of game.shades){
     if(!shadeScenes.has(s.id))shadeScenes.set(s.id,shade());
     const {g,halo,body,feet,scarf,bladeArm}=shadeScenes.get(s.id);
-    g.position.set(s.pos[0],height(s.pos[0],s.pos[2])+.12,s.pos[2]);
+    g.position.set(s.pos[0],s.pos[1]+.12,s.pos[2]);
     const moving=s.state==='chase';
     g.lookAt(game.player.pos[0],g.position.y,game.player.pos[2]);
     body.rotation.x=moving?.24:-.12;
@@ -531,24 +632,23 @@ function populate(time){
     feet.forEach((foot,i)=>{foot.rotation.x=moving?Math.sin(time*13+i*Math.PI)*.81:0;});
     scarf.rotation.x=.15+Math.sin(time*7)*.25;
     bladeArm.rotation.x=moving?-.42+Math.sin(time*13)*.21:.36;
+    halo.material.color.set(s.state==='stunned'?'#3A3450':'#7A3CFF');
     halo.material.opacity=s.state==='stunned'?.66:.34;
   }
 }
 
+const drifterMaterial=material('#8FA3B8',{side:T.DoubleSide});
 const shrineLight=new T.PointLight('#ffad68',115,26,2);
 scene.add(shrineLight);
 renderer.setAnimationLoop(now=>{
   const dt=Math.min(Math.max(0,(now-previous)/1000),.067);
   previous=now;
-  if(paused){
-    renderer.render(scene,camera);
-    return;
-  }
-  const time=game.tick/60;
-  accumulator+=dt;
+  const running=view==='playing'&&game.state==='playing';
+  const time=game.simTick/60;
+  accumulator=running?accumulator+dt:0;
   let x=key('KeyD','ArrowRight')-key('KeyA','ArrowLeft');
   let z=key('KeyS','ArrowDown')-key('KeyW','ArrowUp');
-  let yaw=cameraYaw;
+  let yaw=yawDeg;
   if(target&&!x&&!z){
     x=target.x-game.player.pos[0];z=target.z-game.player.pos[2];
     const length=Math.hypot(x,z);
@@ -561,32 +661,32 @@ renderer.setAnimationLoop(now=>{
       input[action]=actions[action]&&!game.previous[action];
       if(input[action])actions[action]=false;
     }
+    if(game.state!=='playing'){accumulator=0;break;}
     const position=game.player.pos;
     priorPosition[0]=position[0];
     priorPosition[1]=position[1];
     priorPosition[2]=position[2];
-    for(const e of step(game,input,canMove)){
+    const wasGrounded=game.player.grounded;
+    const events=step(game,input,canMove);
+    if(wasGrounded&&!game.player.grounded&&game.player.vel[1]>0)audio.play('jump');
+    for(const e of events){
       if(e.name==='pulse')pulseAge=0;
-      if(e.name==='mote_picked'){
-        const active=new Set(game.motes.map(m=>m.id));
-        for(const [id,g] of moteScenes) if(!active.has(id)){scene.remove(g);moteScenes.delete(id);}
-      }
+      audio.play(e.name==='game_over'?e.data.result:e.name);
     }
     accumulator-=1/60;
   }
   displayed.fromArray(priorPosition);
-  const blend=accumulator*60;
+  const blend=running?Math.min(1,accumulator*60):1;
   displayed.x+=(game.player.pos[0]-displayed.x)*blend;
   displayed.y+=(game.player.pos[1]-displayed.y)*blend;
   displayed.z+=(game.player.pos[2]-displayed.z)*blend;
   const {x:px,y:py,z:pz}=displayed, groundY=height(px,pz);
-  avatar.position.set(px,groundY,pz);
+  avatar.position.set(px,0,pz);
   actor.position.y=py+(walking?Math.sin(time*17)**2*.077:0);
   actor.rotation.x=walking?-.18:.04+Math.sin(time*2)*.022;
   shoulders.forEach((plate,i)=>{plate.rotation.x=walking?Math.sin(time*15+i*Math.PI)*.18:0;});
-  if(walking){
-    const theta=yaw===0?0:radians;
-    const angle=Math.atan2(-(x*Math.cos(theta)+z*Math.sin(theta)),-(-x*Math.sin(theta)+z*Math.cos(theta)));
+  if(running){
+    const angle=Math.atan2(-game.player.facing[0],-game.player.facing[1]);
     const d=angle-actor.rotation.y;
     actor.rotation.y+=Math.atan2(Math.sin(d),Math.cos(d))*(1-Math.exp(-dt*16));
   }
@@ -594,20 +694,24 @@ renderer.setAnimationLoop(now=>{
   tails.forEach((tail,i)=>{tail.rotation.x=Math.sin(time*5+i)*.17+.11;});
   hanging.rotation.x=Math.sin(time*7)*(walking?.23:.07);
   hanging.rotation.z=Math.cos(time*6)*(walking?.21:.06);
-  actor.visible=game.tick>=game.invulnerableUntil||Math.floor(game.tick/5)%2===0;
-  carriedLight.position.set(px,groundY+py+2.4,pz);
-  aim.lerp(cameraTarget.set(px,0,pz-5),1-Math.exp(-dt*5));
+  avatar.visible=!game.player.fall;
+  shadow.position.y=groundY+.06;
+  actor.visible=!game.player.invuln||Math.floor(game.tick/5)%2===0;
+  carriedLight.position.set(px,Math.max(0,py)+2.4,pz);
+  aim.lerp(cameraTarget.set(px,Math.max(0,py),pz+3),1-Math.exp(-dt*5));
+  const theta=yawDeg*Math.PI/180;
+  offset.set(30*Math.sin(theta),26,30*Math.cos(theta));
   camera.position.copy(aim).addScaledVector(offset,camera.aspect<.74?1.21:1);
   camera.lookAt(aim);
   const lit=game.lanterns.filter(l=>l.lit);
-  ambient.intensity=2+lit.length*.22;
+  ambient.intensity=.15+.55*lit.length/game.lanterns.length;
   for(const [i,l] of game.lanterns.entries()){
     const s=shrines[i];
     if(s.lit===l.lit) continue;
     s.lit=l.lit;
     s.pool.visible=l.lit;
     s.heart.material=l.lit?amber:lampDark;
-    s.halo.material.color.set(l.lit?'#ffb069':'#bd77e7');
+    s.halo.material.color.set(l.lit?'#FFB347':'#bd77e7');
     s.halo.material.opacity=l.lit?.94:.25;
     const diameter=l.lit?17:8;
     s.halo.scale.set(diameter,diameter,1);
@@ -620,37 +724,63 @@ renderer.setAnimationLoop(now=>{
     if(distance<closestDistance){closest=lantern;closestDistance=distance;}
   }
   shrineLight.intensity=closest?115:0;
-  if(closest)shrineLight.position.set(closest.pos[0],4,closest.pos[2]);
+  if(closest)shrineLight.position.set(closest.pos[0],closest.pos[1]+3,closest.pos[2]);
   populate(time);
-  pulseAge+=dt;
+  if(running)pulseAge+=dt;
   pulseRing.visible=pulseAge<.65;
-  pulseRing.position.set(px,groundY+.42,pz);
+  pulseRing.position.set(px,py+.42,pz);
   pulseRing.scale.setScalar(Math.max(.2,pulseAge/.65*tuning.pulse_radius));
   pulseRing.material.opacity=Math.max(0,1-pulseAge/.65);
   clouds.uniforms.time.value=time;
-  if(now>=nextHud || (game.state!=='playing'&&ui.ending.hidden)){
+  if(view==='playing'&&(now>=nextHud || game.state!=='playing')){
     nextHud=now+100;
-    updateHud(px,pz,lit.length);
+    updateHud(px,py,pz,lit.length);
     map();
   }
   renderer.render(scene,camera);
 });
-function updateHud(px,pz,litCount){
-  const near=game.lanterns.find(l=>Math.hypot(l.pos[0]-px,l.pos[2]-pz)<=tuning.interact_radius);
-  ui.objective.textContent=near
-    ? island.lanterns.find(l=>l.id===near.id).name+(near.lit?' · Đã thắp sáng':' · '+near.deposited+'/'+tuning.lantern_cost+
-      (game.player.carried?' · '+(mobile.matches?'Bấm Nạp đèn':'E để nạp'):' · Cần đom đóm'))
-    : 'Gom đom đóm và thắp sáng năm ngôi đền.';
-  ui.lights.textContent=litCount+' / 5';
-  ui.motes.textContent=game.player.carried+' / '+tuning.carry_capacity;
-  ui.flames.textContent=game.player.flames+' / '+tuning.flames;
-  ui.score.textContent=game.score;
+const projected=new T.Vector3();
+function updateHud(px,py,pz,litCount){
+  const candidates=game.lanterns.filter(l=>!l.lit).sort((a,b)=>
+    Math.hypot(a.pos[0]-px,a.pos[2]-pz)-Math.hypot(b.pos[0]-px,b.pos[2]-pz));
+  const near=candidates.find(l=>Math.hypot(l.pos[0]-px,l.pos[2]-pz)<=2&&Math.abs(l.pos[1]-py)<=1.5);
+  ui.objective.hidden=!near;
+  if(near)ui.objective.textContent=(mobile.matches?'Nạp':'E — Nạp ánh sáng')+' ('+near.deposited+'/10)';
+  ui.direction.hidden=true;
+  if(candidates[0]){
+    projected.set(candidates[0].pos[0],candidates[0].pos[1]+2,candidates[0].pos[2]).project(camera);
+    if(Math.abs(projected.x)>.93||Math.abs(projected.y)>.91||projected.z>1){
+      ui.direction.hidden=false;
+      ui.direction.style.setProperty('--bearing',Math.atan2(projected.x,projected.y)*180/Math.PI+'deg');
+    }
+  }
+  ui.lights.textContent=litCount+' / '+game.lanterns.length;
+  const p=game.player;
+  ui.motes.textContent=p.carried+' / 10 đom đóm';
+  Array.from(ui.slots.children).forEach((slot,i)=>slot.classList.toggle('on',i<p.carried));
+  ui.flames.textContent='◆'.repeat(p.flames)+'◇'.repeat(3-p.flames);
+  ui.score.textContent=campaignTotal+game.score;
+  ui['dash-cd'].textContent='➤ Lướt '+(p.dashCd?(p.dashCd/60).toFixed(1)+' s':p.charm?'· Bùa Gió':'· Sẵn sàng');
+  ui['pulse-cd'].textContent='✦ Tỏa sáng '+(p.pulseCd?(p.pulseCd/60).toFixed(1)+' s':'· '+p.carried+'/3');
   const seconds=Math.ceil(timeLeft(game));
   ui.time.textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
-  if(game.state!=='playing'&&ui.ending.hidden){
-    ui.result.textContent=game.state==='won'?'Đảo Bến đã sáng':'Đêm đã khép lại';
-    ui.summary.textContent='Điểm của bạn · '+game.score;
-    ui.ending.hidden=false;
+  ui.time.classList.toggle('danger',seconds<=30);
+  if(seconds<=10&&seconds>0&&seconds!==lastCountdown){
+    audio.play('countdown');lastCountdown=seconds;
+  }
+  if(game.wind.warning&&!lastWind)audio.play('wind');
+  lastWind=game.wind.warning;
+  audio.update(game.simTick);
+  ui.wind.hidden=!game.wind.warning&&!game.wind.active;
+  ui.wind.textContent=game.wind.warning?'Gió mạnh sắp tới':'Gió mạnh';
+  if(game.state!=='playing'){
+    const won=game.state==='won';
+    const finale=won&&nightNumber===3;
+    ui['result-label'].textContent='Đêm '+nightNumber+' · '+island.name;
+    ui.result.textContent=finale?'Bình Minh':won?island.name+' đã sáng':'Đêm đã khép lại';
+    ui.summary.textContent=finale?'Tổng điểm · '+(campaignTotal+game.score):'Điểm đêm này · '+game.score;
+    ui.restart.hidden=won;ui.next.hidden=!won||finale;
     ui.pause.hidden=true;
+    show('ending');
   }
 }

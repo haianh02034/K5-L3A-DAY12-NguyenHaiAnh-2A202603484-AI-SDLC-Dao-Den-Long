@@ -1,1 +1,1 @@
-Enrich island forest and add obstacle gameplay
+Polish shrine lighting, obstacle sliding and difficulty

@@ -4,46 +4,49 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Đảo Đèn Lồng</title>
 <style>
-:root{color-scheme:dark;--paper:#fff0d5;--dim:#d6c7d9;--line:#ffddba32;--frame:#171524de}
-*{box-sizing:border-box}body{margin:0;background:#242746;color:var(--paper);font:15px/1.4 system-ui,sans-serif;overflow:hidden}
-canvas{display:block;width:100vw;height:100vh;touch-action:none}
-main{position:fixed;inset:0;pointer-events:none;padding:clamp(16px,3.3vw,54px);background:radial-gradient(ellipse at 54% 48%,transparent 54%,#100e237d 100%)}
-header{max-width:min(90vw,620px);text-shadow:0 2px 20px #1c1735}
-.eyebrow{margin:0 0 5px;color:#ffca90;font-size:11px;letter-spacing:.25em;text-transform:uppercase;font-weight:750}
-h1,h2{font:600 clamp(31px,4.6vw,66px)/1.05 "Times New Roman",serif;letter-spacing:-.035em;margin:0}
-#objective{color:#fff1db;margin:.62em 0 1.05em}
-.stats{display:flex;flex-wrap:wrap;gap:1px;width:max-content;max-width:100%;margin:0;border:1px solid var(--line);border-radius:13px;background:var(--line);overflow:hidden;font-variant-numeric:tabular-nums}
-.stats div{min-width:66px;padding:7px 11px;background:var(--frame)}dt{color:var(--dim);font-size:10px}dd{margin:0;font-size:15px;font-weight:700;color:#ffe0a9}
-#map{position:fixed;bottom:clamp(58px,7vw,100px);right:clamp(16px,3vw,48px);width:clamp(87px,12vw,164px);height:auto}
-.help{position:fixed;bottom:17px;left:50%;transform:translateX(-50%);width:max-content;max-width:94vw;margin:0;text-align:center;background:var(--frame);border:1px solid var(--line);padding:8px 17px;border-radius:22px;color:var(--dim);font-size:12px}
-.touch{display:none;position:fixed;left:16px;bottom:50px;gap:6px}
-button{pointer-events:auto;padding:9px 15px;border-radius:8px;background:#eee0c6;color:#282034;border:1px solid #efc283;font-weight:750;cursor:pointer}
-#ending,#breakscreen{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;padding:30px 38px;width:min(440px,92vw);border:1px solid var(--line);border-radius:18px;background:#191528ee;box-shadow:0 16px 60px #110d28aa}
-#ending h2,#breakscreen h2{font-size:40px}#ending p{color:var(--dim)}
-.pause{position:fixed;top:clamp(14px,3.3vw,52px);right:clamp(14px,3.3vw,52px);background:#171524e8;color:#ffe4b2;border-color:#f2c58977;font-size:12px;padding:7px 12px} #breakscreen h2{margin-bottom:20px} @media(max-width:540px){.pause{top:auto;bottom:49px;right:16px}} @media(pointer:coarse){.touch{display:flex}.desktop{display:none}}
-@media(pointer:fine){.mobile{display:none}}
-@media(max-width:540px){.stats div{min-width:53px;padding:5px 7px}dd{font-size:13px}#objective{font-size:12px}}
+:root{color-scheme:dark;--paper:#F5F1E6;--gold:#F2C14E;--line:#f2c14e46;--frame:#0e1430e8;--danger:#FF5A5F}
+*{box-sizing:border-box}body{margin:0;background:#0E1430;color:var(--paper);font:15px/1.5 system-ui,sans-serif;overflow:hidden}
+[hidden]{display:none!important}body>canvas{display:block;width:100vw;height:100vh;touch-action:none}main{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 54% 48%,transparent 51%,#0e143084 100%)}
+.corner,.timer,.carry,.cooldowns,.help,.touch,.pointer{position:fixed}.corner{top:22px;padding:9px 14px;border:1px solid var(--line);border-radius:12px;background:var(--frame);font-variant-numeric:tabular-nums}
+.left{left:22px}.right{right:22px;text-align:right}.corner b{color:var(--gold);font-size:17px}.corner small{display:block;color:var(--paper);opacity:.79}
+.timer{top:19px;left:50%;transform:translateX(-50%);font-size:24px;font-weight:750;padding:4px 13px;background:var(--frame);border-radius:10px;font-variant-numeric:tabular-nums}
+.danger{color:var(--danger);animation:blink .8s infinite alternate}@keyframes blink{to{opacity:.57}}
+.carry{bottom:50px;left:50%;transform:translateX(-50%);text-align:center;padding:9px 14px;border:1px solid var(--line);border-radius:13px;background:var(--frame)}
+#slots{display:flex;gap:4px;justify-content:center}.slot{width:13px;height:7px;border-radius:4px;background:#1b2350}.slot.on{background:#FFE58A;box-shadow:0 0 10px #ffb34799}
+#objective{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);max-width:94vw;text-align:center;margin:0;padding:4px 11px;background:var(--frame);border-radius:8px;font-size:13px}
+.cooldowns{display:flex;gap:8px;right:22px;bottom:19px}.cooldowns span{padding:6px 9px;border-radius:8px;background:var(--frame);border:1px solid var(--line);color:var(--gold);font-size:12px}
+#map{position:fixed;bottom:62px;right:22px;width:clamp(80px,12vw,145px);height:auto}
+.help{bottom:14px;left:50%;transform:translateX(-50%);width:max-content;max-width:94vw;margin:0;text-align:center;background:var(--frame);padding:4px 12px;border-radius:8px;font-size:11px}
+.touch{display:none;bottom:90px;left:12px;gap:5px}.pause{position:fixed;right:22px;top:117px;font-size:12px}
+button{pointer-events:auto;padding:9px 15px;border-radius:8px;background:#172045;color:var(--paper);border:1px solid var(--line);font-weight:700;cursor:pointer}
+.primary{background:var(--gold);color:#111633;border-color:var(--gold)}
+.panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;padding:clamp(22px,6vw,48px);width:min(544px,92vw);border:1px solid var(--line);border-radius:20px;background:var(--frame);box-shadow:0 16px 80px #06091aaa;pointer-events:auto}
+h1,h2{font:600 clamp(34px,5.6vw,65px)/1.04 "Times New Roman",serif;letter-spacing:-.035em;margin:0;color:var(--paper)}
+.kicker{color:var(--gold);letter-spacing:.18em;font-size:11px;text-transform:uppercase}.buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}input{accent-color:var(--gold)}
+.pointer{left:50%;top:83px;color:var(--gold);font-size:23px;transform:translateX(-50%) rotate(var(--bearing));text-shadow:0 0 12px #ffb347}
+#wind{position:fixed;top:119px;left:50%;transform:translateX(-50%);color:var(--gold);text-shadow:0 1px 7px #000}
+@media(pointer:coarse){.touch{display:flex;flex-wrap:wrap;max-width:230px}.desktop{display:none}.touch button{padding:7px}}
+@media(max-width:570px){.corner{top:10px;font-size:12px}.left{left:10px}.right,.pause,#map,.cooldowns{right:10px}.timer{top:9px;font-size:18px}.cooldowns{bottom:47px;flex-direction:column;gap:3px}#map{bottom:122px}.slot{width:9px}.carry{bottom:39px}.help{font-size:9px}}
 </style>
 <main>
-<header>
-<p class="eyebrow">Đêm 1 · Đảo Bến</p>
-<h1>Đảo Đèn Lồng</h1>
-<p id="objective">Gom đom đóm và thắp sáng năm ngôi đền.</p>
-<dl class="stats">
-<div><dt>Đèn</dt><dd id="lights">0 / 5</dd></div>
-<div><dt>Đom đóm</dt><dd id="motes">0 / 14</dd></div>
-<div><dt>Sinh lực</dt><dd id="flames">3 / 3</dd></div>
-<div><dt>Còn lại</dt><dd id="time">7:00</dd></div>
-<div><dt>Điểm</dt><dd id="score">0</dd></div>
-</dl>
-</header>
-<canvas id="map" width="180" height="180" aria-label="Bản đồ vị trí Mây và năm đèn"></canvas>
-<p class="help desktop">WASD / phím mũi tên · Space nhảy · E nạp đèn · Q tỏa sáng</p>
-<p class="help mobile">Chạm lên mặt đất để di chuyển</p>
-<div class="touch"><button id="jump">Nhảy</button><button id="interact">Nạp đèn</button><button id="pulse">Tỏa sáng</button></div>
-<button id="pause" class="pause" type="button" aria-pressed="false">Tạm dừng</button>
-<section id="breakscreen" hidden><h2>Đang tạm dừng</h2><button id="resume" type="button">Tiếp tục</button></section>
-<section id="ending" hidden><h2 id="result"></h2><p id="summary"></p><button id="restart">Chơi lại</button></section>
+<div id="hud" hidden>
+  <div class="corner left"><small id="night-label"></small><b id="flames"></b><small>Ngọn Lửa</small></div>
+  <div class="timer" id="time">5:00</div>
+  <div class="corner right"><b id="lights"></b><small>Đèn đã thắp</small><b id="score"></b><small>Điểm</small></div>
+  <div class="carry"><small id="motes"></small><div id="slots"></div></div>
+  <div class="cooldowns"><span id="dash-cd"></span><span id="pulse-cd"></span></div>
+  <canvas id="map" width="180" height="180" aria-label="Bản đồ"></canvas>
+  <p id="objective" hidden></p><span id="direction" class="pointer" title="Đèn chưa thắp gần nhất" hidden>▲</span><div id="wind" hidden></div>
+  <p class="help desktop">WASD · Space nhảy · Shift lướt · E nạp · Q tỏa sáng · Esc/P tạm dừng</p>
+  <div class="touch"><button id="jump">Nhảy</button><button id="dash">Lướt</button><button id="interact">Nạp</button><button id="pulse">Tỏa sáng</button></div>
+  <button id="pause" class="pause" type="button">Tạm dừng</button>
+</div>
+<section id="menu" class="panel" hidden><p class="kicker">Ba hòn đảo</p><h1>Đảo Đèn Lồng</h1><p>Giúp Mây mang ánh sáng trở về trước bình minh.</p><div class="buttons"><button id="new-game" class="primary">Bắt đầu</button><button id="menu-settings">Cài đặt</button></div></section>
+<section id="intro" class="panel" hidden><p id="intro-night" class="kicker"></p><h2 id="intro-title"></h2><p id="intro-words"></p><button id="play" class="primary">Vào đảo</button></section>
+<section id="breakscreen" class="panel" hidden><h2>Đang tạm dừng</h2><div class="buttons"><button id="resume" class="primary">Tiếp tục</button><button id="replay">Chơi lại Đêm</button><button id="pause-settings">Cài đặt</button><button id="pause-menu">Về menu</button></div></section>
+<section id="settings" class="panel" hidden><h2>Cài đặt</h2><label>Âm lượng<input id="volume" type="range" min="0" max="1" step=".05"></label><label>Độ nhạy chuột<input id="sensitivity" type="range" min=".2" max="2" step=".1"></label><button id="back">Quay lại</button></section>
+<section id="ending" class="panel" hidden><p id="result-label" class="kicker"></p><h2 id="result"></h2><p id="summary"></p><div class="buttons"><button id="restart" class="primary">Chơi lại đêm</button><button id="next" class="primary">Đêm kế tiếp</button><button id="end-menu">Về menu</button></div></section>
 </main>
 <!-- GAME -->
 </html>
