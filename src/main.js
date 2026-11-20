@@ -548,6 +548,7 @@ const read=(storage,key,fallback)=>{
 const write=(storage,key,value)=>{try{window[storage].setItem(key,String(value));}catch{}};
 const settings={
   volume:Number(read('localStorage','island-volume',.45)),
+  'music-volume':Number(read('localStorage','island-music-volume',.82)),
   sensitivity:Number(read('localStorage','island-sensitivity',1)),
   accessible:read('localStorage','island-accessible','false')==='true',
 };
@@ -579,11 +580,12 @@ ui['color-mode'].addEventListener('change',()=>{
   applyColorMode();
 });
 applyColorMode();
-const audio=createAudio(()=>settings.volume);
-for(const id of ['volume','sensitivity']){
+const audio=createAudio(()=>settings.volume,()=>settings['music-volume']);
+for(const id of ['volume','music-volume','sensitivity']){
   ui[id].value=settings[id];
   ui[id].addEventListener('input',()=>{
     settings[id]=Number(ui[id].value);write('localStorage','island-'+id,settings[id]);
+    audio.syncVolume();
   });
 }
 let game=createGame(island.seed,{},nightNumber,true);
@@ -616,6 +618,7 @@ let lastCountdown=11;
 let lastWind=false;
 function show(name) {
   view=name;
+  audio.setMusic(name==='playing');
   ui.signature.hidden=name!=='menu';
   for(const panel of ['menu','intro','breakscreen','settings','ending'])ui[panel].hidden=panel!==name;
   ui.hud.hidden=!['playing','breakscreen','ending'].includes(name);
@@ -1072,7 +1075,6 @@ function updateHud(px,py,pz,litCount){
   }
   if(game.wind.warning&&!lastWind)audio.play('wind');
   lastWind=game.wind.warning;
-  audio.update(game.simTick);
   ui.wind.hidden=!game.wind.warning&&!game.wind.active;
   ui.wind.textContent=game.wind.warning?'Gió mạnh sắp tới':'Gió mạnh';
   if(game.state!=='playing'){
