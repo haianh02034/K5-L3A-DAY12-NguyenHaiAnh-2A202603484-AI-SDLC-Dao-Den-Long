@@ -1,5 +1,19 @@
 # Day 12 — AI SDLC: Đảo Đèn Lồng
 
+## Bản chơi thử Checkpoint 0
+
+Cần Node.js 24. Chạy hai lệnh từ thư mục repo:
+
+```sh
+npm ci
+npm run build
+```
+
+Mở `dist/index.html` trong trình duyệt có WebGL 2. File chạy offline. Di chuyển bằng WASD, phím mũi tên hoặc chạm/nhấp vào mặt đất. Gom 6 đom đóm rồi đến Đèn Lồng Lớn ở phía bắc.
+
+Dữ liệu màn chơi nằm tại [src/island.json](src/island.json). Chạy `npm test` để kiểm tra logic. Xem [ghi chép Checkpoint 0](docs/checkpoint-0.md) để biết giả định và bằng chứng.
+
+
 > **Cá nhân** (1 người / 1 MSSV) · Áp dụng SDLC cùng AI để xây một **game 3D** qua **4 phase**, từ yêu cầu ban đầu tới bản phát hành.
 > **Lab board + trợ giảng:** **[Đảo Đèn Lồng Lab](https://claude.ai/artifact/Q1RYyv1dxjUczzCbd2ZnoW)**
 
