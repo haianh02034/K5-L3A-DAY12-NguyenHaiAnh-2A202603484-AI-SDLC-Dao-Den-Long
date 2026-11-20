@@ -633,12 +633,12 @@ function togglePause(){
   if(view==='playing')show('breakscreen');
   else if(view==='breakscreen'){audio.start();show('playing');}
 }
-function reset(){
+function reset(scenario={}){
   for(const m of moteScenes.values())scene.remove(m);
   for(const s of shadeScenes.values())scene.remove(s.g);
   for(const d of drifterScenes.values())scene.remove(d);
   drifterScenes.clear();moteScenes=new Map();shadeScenes=new Map();
-  game=createGame(island.seed,{},nightNumber,true);
+  game=createGame(island.seed,scenario,nightNumber,true);
   priorPosition=[...game.player.pos];nextHud=0;accumulator=0;
   aim.set(game.player.pos[0],1,game.player.pos[2]-3);target=null;pulseAge=2;pulseDeniedUntil=0;lastCountdown=11;lastWind=false;
   ui.pause.hidden=false;
@@ -660,11 +660,18 @@ for(const from of ['menu','pause']){
   ui[from+'-settings'].addEventListener('click',()=>{settingsFrom=from==='pause'?'breakscreen':'menu';show('settings');});
 }
 ui.back.addEventListener('click',()=>show(settingsFrom));
-ui.play.addEventListener('click',reset);
+ui.play.addEventListener('click',()=>reset());
+ui['test-dawn'].hidden=!practice;
+ui['test-dawn'].addEventListener('click',()=>{
+  if(!practice)return;
+  const needed=Math.ceil(tuning.win_ratio*island.lanterns.length);
+  const lanterns=island.lanterns.slice(0,needed).map(({id})=>({id,lit:true,fuel:tuning.fuel_max}));
+  reset({time_left_s:12,lanterns});
+});
 ui.pause.addEventListener('click',togglePause);
 ui.resume.addEventListener('click',togglePause);
-ui.restart.addEventListener('click',reset);
-ui.replay.addEventListener('click',reset);
+ui.restart.addEventListener('click',()=>reset());
+ui.replay.addEventListener('click',()=>reset());
 for(const id of ['pause-menu','end-menu'])ui[id].addEventListener('click',()=>go(0));
 ui.next.addEventListener('click',()=>{
   if(game.state==='won'&&nightNumber<3){

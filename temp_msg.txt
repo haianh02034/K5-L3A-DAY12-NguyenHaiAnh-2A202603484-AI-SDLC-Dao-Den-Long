@@ -1,1 +1,1 @@
-Show which pulse targets were blocked or repelled
+Clarify stun and pulse activation in the game view
