@@ -1,1 +1,1 @@
-Improve island navigation and soften browser encounters
+Use a diagonal camera and hide only contacted trees

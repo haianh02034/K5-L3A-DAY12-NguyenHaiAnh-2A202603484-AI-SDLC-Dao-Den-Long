@@ -1,6 +1,6 @@
 const pitches={
   mote_picked:[740,988],lantern_lit:[440,554,659,880],pulse:[210,105],player_hit:[171,112],jump:[280,430],
-  dash:[350,160],won:[523,659,784,1046],lost:[392,311,220],shade_spawned:[116,147],
+  dash:[350,160],refuel:[510,680],lantern_out:[352,245],won:[523,659,784,1046],lost:[392,311,220],shade_spawned:[116,147],
   countdown:[660],wind:[215,184,135],charm_picked:[610,800,1050],drifter_steal:[400,270],
 };
 const melody=[196,247,293,247,174,220,261,220,146,196,233,196,174,220,261,293];

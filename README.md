@@ -10,14 +10,14 @@ npm run build
 npm start
 ```
 
-Mở http://127.0.0.1:4173 hoặc mở trực tiếp `dist/index.html` trong trình duyệt có WebGL 2. Vào menu, chọn **Bắt đầu** và thắp toàn bộ đèn để mở Đêm kế tiếp. Khi thua, có thể chơi lại Đêm đó. Tag `phase-1` chứa bản Đảo Bến ban đầu. **Thử đảo** hoặc **Qua Đêm nhanh** mở ngay đảo cần kiểm tra, tăng 20% tốc độ chạy và có 36 đom đóm ban đầu thay vì 30; điểm lượt thử không cộng vào chiến dịch. Lăn chuột để thu hoặc mở rộng góc nhìn. Trong Cài đặt, chọn giới hạn FPS và chất lượng hình; HUD hiển thị FPS thực tế. Trong bản chơi, điểm vừa nhặt đom đóm được dùng lại sau ít nhất 18 giây.
+Mở http://127.0.0.1:4173 hoặc mở trực tiếp `dist/index.html` trong trình duyệt có WebGL 2. Vào menu, chọn **Bắt đầu** và giữ đủ đèn sáng tới bình minh để mở Đêm kế tiếp. Khi thua, có thể chơi lại Đêm đó. Tag `phase-1` chứa bản Đảo Bến ban đầu, tag `phase-2` chứa chiến dịch theo luật cũ. **Thử đảo** hoặc **Qua Đêm nhanh** mở ngay đảo cần kiểm tra, tăng 20% tốc độ chạy và có 36 đom đóm ban đầu thay vì 30; điểm lượt thử không cộng vào chiến dịch. Lăn chuột để thu hoặc mở rộng góc nhìn. Trong Cài đặt, chọn giới hạn FPS và chất lượng hình; HUD hiển thị FPS thực tế. Trong bản chơi, điểm vừa nhặt đom đóm được dùng lại sau ít nhất 18 giây.
 
 - **WASD / phím mũi tên** để đi, **Space** để nhảy, **Shift** để lướt, **E** để nạp đèn, **Q** để tỏa sáng, **Esc / P** để tạm dừng. Nhấp lên mặt đất để chọn điểm đi, hoặc giữ chuột phải và kéo để xoay camera.
-- Nạp 10 đom đóm cho mỗi đèn. Điểm gồm 10 mỗi đom đóm đã nạp, 100 mỗi đèn, 5 mỗi Bóng Mực trúng Tỏa Sáng. Khi thắng một Đêm, cộng 2 mỗi giây nguyên còn lại và 50 mỗi Ngọn Lửa còn lại. Tổng điểm chỉ cộng các Đêm đã thắng.
+- Thắp mới cần 10 đom đóm, thắp lại cần 5. Đứng cạnh đèn để châm dầu bằng **E**. Khi bình minh, cần ít nhất 3/5, 4/6 hoặc 5/7 đèn còn sáng tùy Đêm. Xem [công thức điểm và các thay đổi](docs/phase-3.md).
 
 ## Kiểm thử
 
-Chạy `npm test`. Xem [Test Contract v1.1](game.contract.json) và [ghi chép Phase 2](docs/phase-2.md).
+Chạy `npm test`. Xem [Test Contract v1.2](game.contract.json) và [ghi chép Phase 3](docs/phase-3.md).
 
 ```sh
 node scripts/headless.mjs --seed 42 --night 2 --ticks 1200 --snapshot-every 60 --out replay.jsonl
@@ -27,7 +27,7 @@ node scripts/headless.mjs --seed 42 --night 2 --ticks 1200 --snapshot-every 60 -
 
 ## Sáng tạo của tôi
 
-Rừng nhiều màu, hiệu ứng biển mây, Mây mặc áo vải sáng với khăn đỏ và nón lá treo đèn, Bóng Mực mang dáng ninja tím đen. Đèn có quầng sáng độc lập. Các chi tiết hình ảnh và âm thanh tổng hợp chỉ chạy trong trình duyệt.
+Rừng nhiều màu, hiệu ứng biển mây, Mây mặc áo vải sáng với khăn đỏ và nón lá treo đèn, Bóng Mực mang dáng ninja tím đen. Đèn có quầng sáng độc lập, Mây có vòng hộ thân và chiêu Q có sáu rồng đồng nhiều mặt. Các chi tiết hình ảnh và âm thanh tổng hợp chỉ chạy trong trình duyệt.
 
 > **Cá nhân** (1 người / 1 MSSV) · Áp dụng SDLC cùng AI để xây một **game 3D** qua **4 phase**, từ yêu cầu ban đầu tới bản phát hành.
 > **Lab board + trợ giảng:** **[Đảo Đèn Lồng Lab](https://claude.ai/artifact/Q1RYyv1dxjUczzCbd2ZnoW)**

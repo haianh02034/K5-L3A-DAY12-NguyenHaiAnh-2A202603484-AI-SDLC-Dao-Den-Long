@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { createGame, idleInput, step, timeLeft } from '../src/game.mjs';
+import { capacity, fuelValue } from '../src/lanterns.mjs';
 
 const integer = (n, minimum = 0) => Number.isSafeInteger(n) && n >= minimum;
 const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -28,15 +29,16 @@ function validateScenario(s, night) {
   if ('player' in s) {
     check(object(s.player), 'player');
     if ('pos' in s.player) check(vector(s.player.pos, 3), 'player.pos');
-    for (const key of ['carried', 'flames', 'invuln_ticks', 'dash_cd_ticks', 'pulse_cd_ticks', 'charm_ticks']) if (key in s.player) check(integer(s.player[key]), key);
+    for (const key of ['carried', 'flames', 'invuln_ticks', 'dash_cd_ticks', 'pulse_cd_ticks', 'charm_ticks', 'successful_lights']) if (key in s.player) check(integer(s.player[key]), key);
   }
   if ('time_left_s' in s) check(Number.isFinite(s.time_left_s) && s.time_left_s >= 0, 'time_left_s');
   for (const key of ['random_motes', 'random_shades', 'random_drifters', 'wind_enabled']) if (key in s) check(typeof s[key] === 'boolean', key);
   if ('motes' in s) check(Array.isArray(s.motes) && s.motes.every(p => vector(p, 3)), 'motes');
   if ('shades' in s) check(Array.isArray(s.shades) &&
     s.shades.every(v => object(v) && vector(v.pos, 3) && (!('id' in v) || typeof v.id === 'string') &&
-      (!('state' in v) || ['spawning','wander','chase','recoil','stunned'].includes(v.state)) &&
-      (!('state_ticks_left' in v) || integer(v.state_ticks_left))), 'shades');
+      (!('state' in v) || ['spawning','wander','chase','recoil','stunned','drain'].includes(v.state)) &&
+      (!('state_ticks_left' in v) || integer(v.state_ticks_left)) &&
+      (!('target_lantern_id' in v) || /^L[1-7]$/.test(v.target_lantern_id))), 'shades');
   if ('drifters' in s) check(Array.isArray(s.drifters) && s.drifters.every(v=>object(v)&&vector(v.pos,3)&&
     (!('id' in v)||typeof v.id==='string')&&(!('state' in v)||['idle','chase','flee','removed'].includes(v.state))&&
     (!('state_ticks_left' in v)||integer(v.state_ticks_left))&&(!('stolen' in v)||integer(v.stolen))), 'drifters');
@@ -46,7 +48,8 @@ function validateScenario(s, night) {
     (!('respawn_s' in v)||(Number.isFinite(v.respawn_s)&&v.respawn_s>=0))), 'charms');
   if ('lanterns' in s) check(Array.isArray(s.lanterns) && s.lanterns.every(v => object(v) &&
     /^L[1-7]$/.test(v.id) && Number(v.id.slice(1)) <= night + 4 && (!('pos' in v) || vector(v.pos, 3)) &&
-    (!('lit' in v) || typeof v.lit === 'boolean') && (!('deposited' in v) || integer(v.deposited))), 'lanterns');
+    (!('lit' in v) || typeof v.lit === 'boolean') && (!('deposited' in v) || integer(v.deposited)) &&
+    (!('ever_lit' in v) || typeof v.ever_lit==='boolean') && (!('fuel' in v) || (Number.isFinite(v.fuel)&&v.fuel>=0&&v.fuel<=100))), 'lanterns');
   return s;
 }
 
@@ -56,9 +59,10 @@ function snapshot(g) {
   const p=g.player;
   return {type:'snapshot',tick:g.tick,sim_tick:g.simTick,state:g.state,night:g.night,
     time_left_s:timeLeft(g),wind:{active:g.wind.active,dir_deg:g.wind.dir_deg},
-    player:{pos:coords(p.pos),vel:coords(p.vel),grounded:p.grounded,flames:p.flames,carried:p.carried,
+    player:{pos:coords(p.pos),vel:coords(p.vel),grounded:p.grounded,flames:p.flames,carried:p.carried,capacity:capacity(p),
       invuln:p.invuln>0,dash_cd_s:timed(p.dashCd),pulse_cd_s:timed(p.pulseCd),charm_s:timed(p.charm)},
-    lanterns:g.lanterns.map(l=>({...l,pos:coords(l.pos)})),
+    lanterns:g.lanterns.map(l=>({id:l.id,pos:coords(l.pos),lit:l.lit,deposited:l.deposited,
+      fuel:l.lit?fuelValue(l):0,ever_lit:l.ever_lit,relit_count:l.relit_count})),
     shades:g.shades.map(({id,pos,state})=>({id,pos:coords(pos),state})),
     drifters:g.drifters.map(({id,pos,state,stolen})=>({id,pos:coords(pos),state,stolen})),
     charms:g.charms.map(({id,available,respawn})=>({id,available,respawn_s:timed(respawn)})),

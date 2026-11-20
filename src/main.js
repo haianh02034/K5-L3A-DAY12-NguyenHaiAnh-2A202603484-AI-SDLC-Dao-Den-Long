@@ -2,6 +2,7 @@ import * as T from 'three';
 import { maps, surface } from './maps.mjs';
 import { createAudio } from './audio.mjs';
 import { createPulseDragons } from './pulse-dragons.mjs';
+import { canReceive, capacity, isSafe, isWeak, lightCost, fullFuel } from './lanterns.mjs';
 
 const route=location.hash.slice(1);
 const practice=route.startsWith('test-');
@@ -346,7 +347,20 @@ function pagoda(x,z,index) {
     model(group,orb,amber,a*2.62,3.62,b*2.62,.18,.23,.18);
     sprite(group,a*2.62,3.62,b*2.62,2.1,2.1,'#ffc07d',.53);
   }
-  const heart=model(group,new T.CylinderGeometry(.91,.73,1.55,10),lampDark,0,2.67,0);
+  const paper=new T.Group();
+  group.add(paper);paper.position.set(0,2.67,0);
+  const heart=model(paper,new T.CylinderGeometry(.91,.73,1.55,10),lampDark,0,0,0);
+  const tear=new T.Group();paper.add(tear);
+  const tearMat=flat('#1d1722');
+  for(const side of [-1,1])for(let i=0;i<3;i++){
+    const cut=model(tear,cube,tearMat,.14-i*.105,.34-i*.21,side*(.819-i*.022),.072,.36,.055);
+    cut.rotation.z=(i%2?.30:-.48)*side;
+  }
+  const meter=new T.Group();
+  scene.add(meter);meter.position.set(x,height(x,z)+5.25,z);
+  model(meter,cube,flat('#141421'),0,0,0,2.60,.31,.10);
+  const fuelBar=model(meter,cube,flat('#ffe0a0',{toneMapped:false}),0,0,.065,2.48,.19,.04);
+  meter.visible=false;
   for(let j=0;j<10;j++){
     const a=j*Math.PI/5;
     model(group,cube,gold,Math.cos(a)*.81,2.66,Math.sin(a)*.81,.055,1.55,.055);
@@ -368,7 +382,7 @@ function pagoda(x,z,index) {
       -group.position.y);
   }
   pool.visible=false;
-  return {group,heart,halo,disk,pool,lit:false};
+  return {group,heart,paper,tear,meter,fuelBar,halo,disk,pool,lit:null};
 }
 const shrines=island.lanterns.map((l,i)=>pagoda(l.pos[0],l.pos[2],i));
 for(const path of paths) {
@@ -438,6 +452,19 @@ const pulseRing=model(scene,new T.RingGeometry(.90,1,64),flat('#ffc879',{transpa
 pulseRing.rotation.x=-Math.PI/2;
 let pulseAge=2;
 const dragons=createPulseDragons(scene);
+const guardianAura=new T.Group();
+scene.add(guardianAura);
+const aureole=model(guardianAura,new T.TorusGeometry(1.02,.024,6,64),flat('#ffe1a5',{transparent:true,opacity:.65,
+  blending:T.AdditiveBlending,depthWrite:false,toneMapped:false}),0,0,0);
+aureole.rotation.x=-Math.PI/2;
+const auraGlyphs=[];
+const glyphShape=new T.OctahedronGeometry(.10);
+const glyphInk=flat('#ffca78',{transparent:true,opacity:.8,blending:T.AdditiveBlending,depthWrite:false,toneMapped:false});
+for(let i=0;i<8;i++)auraGlyphs.push(model(guardianAura,glyphShape,glyphInk,0,0,0,.78,1.6,.78));
+const seal=model(guardianAura,new T.RingGeometry(.73,.76,32),flat('#f4bd6f',{
+  side:T.DoubleSide,transparent:true,opacity:.44,blending:T.AdditiveBlending,depthWrite:false,toneMapped:false
+}),0,.025,0);
+seal.rotation.x=-Math.PI/2;
 let viewDistance=32;
 
 function mote() {
@@ -452,7 +479,7 @@ function mote() {
 const ninjaBlack=material('#120A1A');
 const ninjaWrap=material('#292139',{flatShading:true});
 const ninjaSteel=material('#aa8fb3',{metalness:.38,roughness:.31});
-const ninjaEyes=flat('#dfa6fb',{toneMapped:false});
+const ninjaEyes=flat('#7A3CFF',{toneMapped:false});
 function shade() {
   const g=new T.Group();
   scene.add(g);
@@ -502,6 +529,7 @@ const write=(storage,key,value)=>{try{window[storage].setItem(key,String(value))
 const settings={
   volume:Number(read('localStorage','island-volume',.45)),
   sensitivity:Number(read('localStorage','island-sensitivity',1)),
+  accessible:read('localStorage','island-accessible','false')==='true',
 };
 const qualities={light:.65,balanced:.85,sharp:1.12};
 const savedQuality=read('localStorage','island-quality','balanced');
@@ -520,6 +548,17 @@ ui['frame-limit'].addEventListener('change',()=>{
   write('localStorage','island-frame-limit',settings.frameLimit);
   nextFrameAt=0;
 });
+function applyColorMode(){
+  document.documentElement.classList.toggle('accessible',settings.accessible);
+  ninjaEyes.color.set(settings.accessible?'#00B3FF':'#7A3CFF');
+}
+ui['color-mode'].checked=settings.accessible;
+ui['color-mode'].addEventListener('change',()=>{
+  settings.accessible=ui['color-mode'].checked;
+  write('localStorage','island-accessible',settings.accessible);
+  applyColorMode();
+});
+applyColorMode();
 const audio=createAudio(()=>settings.volume);
 for(const id of ['volume','sensitivity']){
   ui[id].value=settings[id];
@@ -591,7 +630,7 @@ ui['night-label'].textContent=(practice?'Thử đảo · ':'Đêm '+nightNumber+
 ui.quick.textContent=nightNumber===3?'Thử lại từ Đảo Bến':'Qua Đêm nhanh';
 for(const number of [1,2,3])ui['practice-'+number].addEventListener('click',()=>go(number,true));
 ui.quick.addEventListener('click',()=>go(nightNumber%3+1,true));
-for(let i=0;i<10;i++){
+for(let i=0;i<20;i++){
   const slot=document.createElement('span');slot.className='slot';ui.slots.append(slot);
 }
 ui['new-game'].addEventListener('click',()=>{
@@ -698,7 +737,7 @@ function map(){
   }
   game.lanterns.forEach(l=>{
     nav.beginPath();nav.arc(mx(l.pos[0]),mid+l.pos[2]*scale,4.5,0,Math.PI*2);
-    nav.fillStyle=l.lit?'#ffc671':'#bf91ee';nav.fill();
+    nav.fillStyle=l.lit?(isWeak(l)?(settings.accessible?'#fff':'#FF5A5F'):'#ffc671'):'#87858e';nav.fill();
   });
   for(const pad of island.pads){
     const x=mx(pad.pos[0]),y=mid+pad.pos[2]*scale;
@@ -707,7 +746,7 @@ function map(){
   }
   for(const enemy of game.shades){
     nav.beginPath();nav.arc(mx(enemy.pos[0]),mid+enemy.pos[2]*scale,2.9,0,Math.PI*2);
-    nav.fillStyle=enemy.state==='stunned'?'#a591cc':'#ff627b';nav.fill();
+    nav.fillStyle=enemy.state==='stunned'?'#a591cc':settings.accessible?'#00B3FF':'#ff627b';nav.fill();
   }
   for(const enemy of game.drifters){
     if(enemy.state==='removed')continue;
@@ -765,7 +804,7 @@ function populate(time){
     g.position.set(m.pos[0]+driftX,m.pos[1]+.85+Math.sin(time*1.31+phase)*.43,m.pos[2]+driftZ);
     const [px,py,pz]=game.player.pos;
     const distance=Math.hypot(px-m.pos[0],pz-m.pos[2]);
-    if(distance<3.4&&Math.abs(py-m.pos[1])<=1.5&&game.player.carried<tuning.carry_capacity){
+    if(distance<3.4&&Math.abs(py-m.pos[1])<=1.5&&game.player.carried<capacity(game.player)){
       const pull=(3.4-distance)/1.35;
       g.position.x+=(px-g.position.x)*pull;
       g.position.z+=(pz-g.position.z)*pull;
@@ -784,8 +823,9 @@ function populate(time){
     feet.forEach((foot,i)=>{foot.rotation.x=moving?Math.sin(time*13+i*Math.PI)*.81:0;});
     scarf.rotation.x=.15+Math.sin(time*7)*.25;
     bladeArm.rotation.x=moving?-.42+Math.sin(time*13)*.21:.36;
-    halo.material.color.set(s.state==='stunned'?'#3A3450':'#7A3CFF');
-    halo.material.opacity=s.state==='stunned'?.66:.34;
+    halo.material.color.set(s.state==='stunned'?'#3A3450':settings.accessible?'#00B3FF':'#7A3CFF');
+    if(s.state==='drain')body.rotation.x=.43;
+    halo.material.opacity=s.state==='drain'?.83:s.state==='stunned'?.66:.34;
   }
 }
 
@@ -866,6 +906,18 @@ renderer.setAnimationLoop(now=>{
   shadow.position.y=groundY+.06;
   actor.visible=!game.player.invuln||Math.floor(game.tick/5)%2===0;
   carriedLight.position.set(px,Math.max(0,py)+2.4,pz);
+  guardianAura.visible=view==='playing'&&!game.player.fall;
+  guardianAura.position.set(px,py+.12,pz);
+  const auraPower=Math.max(0,1-pulseAge/.85);
+  aureole.scale.setScalar(1+Math.sin(time*2.2)*.08+auraPower*.45);
+  aureole.material.opacity=.48+auraPower*.48;
+  seal.rotation.z=time*.4;
+  auraGlyphs.forEach((spark,i)=>{
+    const angle=i*Math.PI/4+time*1.6;
+    const span=1.10+auraPower*.44;
+    spark.position.set(Math.cos(angle)*span,.13+(i%3)*.24+Math.sin(time*3+i)*.11,Math.sin(angle)*span);
+    spark.rotation.set(time*.9,angle,time*1.4);
+  });
   const theta=yawDeg*Math.PI/180;
   const sin=Math.sin(theta),cos=Math.cos(theta);
   aim.lerp(cameraTarget.set(px-3*sin,Math.max(0,py)+1,pz-3*cos),1-Math.exp(-dt*5));
@@ -877,15 +929,30 @@ renderer.setAnimationLoop(now=>{
   ambient.intensity=.15+.55*lit.length/game.lanterns.length;
   for(const [i,l] of game.lanterns.entries()){
     const s=shrines[i];
-    if(s.lit===l.lit) continue;
-    s.lit=l.lit;
-    s.pool.visible=l.lit;
-    s.heart.material=l.lit?amber:lampDark;
-    s.halo.material.color.set(l.lit?'#FFB347':'#bd77e7');
-    s.halo.material.opacity=l.lit?.94:.25;
-    const diameter=l.lit?17:8;
-    s.halo.scale.set(diameter,diameter,1);
-    s.disk.visible=l.lit;
+    if(s.lit!==l.lit){
+      s.lit=l.lit;
+      s.pool.visible=l.lit;
+      s.meter.visible=l.lit;
+      s.paper.scale.y=l.lit?1:.8;
+      s.tear.visible=!l.lit;
+      s.heart.material=l.lit?amber:lampDark;
+      s.halo.material.color.set(l.lit?'#FFB347':'#bd77e7');
+      const diameter=l.lit?17:7;
+      s.halo.scale.set(diameter,diameter,1);
+    }
+    s.disk.visible=isSafe(l);
+    const blink=isWeak(l)?(.29+.71*(.5+.5*Math.cos(time*Math.PI*2))):1;
+    s.halo.material.opacity=l.lit?.94*blink:.14;
+    s.pool.material.opacity=.62*blink;
+    s.heart.scale.x=s.heart.scale.z=l.lit?.80+.20*blink:1;
+    if(l.lit){
+      const ratio=l.fuelUnits/fullFuel;
+      s.meter.quaternion.copy(camera.quaternion);
+      s.fuelBar.scale.x=2.48*ratio;
+      s.fuelBar.position.x=-1.24*(1-ratio);
+      s.fuelBar.material.color.set(isWeak(l)?(settings.accessible?'#FFFFFF':'#FF5A5F'):'#ffe0a0');
+      s.fuelBar.visible=blink>.45;
+    }
   }
   let closest=null, closestDistance=Infinity;
   for(const lantern of lit){
@@ -898,9 +965,9 @@ renderer.setAnimationLoop(now=>{
   populate(time);
   if(running)pulseAge+=dt;
   dragons.update(pulseAge);
-  pulseRing.visible=pulseAge<.65;
-  pulseRing.scale.setScalar(Math.max(.2,pulseAge/.65*tuning.pulse_radius));
-  pulseRing.material.opacity=Math.max(0,1-pulseAge/.65);
+  pulseRing.visible=pulseAge<.80;
+  pulseRing.scale.setScalar(Math.max(.2,Math.min(1,pulseAge/.26)*tuning.pulse_radius));
+  pulseRing.material.opacity=Math.max(0,1-pulseAge/.80)*.88;
   if(settings.quality!=='light')clouds.uniforms.time.value=time;
   if(view==='playing'&&(now>=nextHud || game.state!=='playing')){
     nextHud=now+100;
@@ -911,11 +978,15 @@ renderer.setAnimationLoop(now=>{
 });
 const projected=new T.Vector3();
 function updateHud(px,py,pz,litCount){
-  const candidates=game.lanterns.filter(l=>!l.lit).sort((a,b)=>
-    Math.hypot(a.pos[0]-px,a.pos[2]-pz)-Math.hypot(b.pos[0]-px,b.pos[2]-pz));
+  const candidates=game.lanterns.filter(canReceive).sort((a,b)=>
+    Math.hypot(a.pos[0]-px,a.pos[2]-pz)-Math.hypot(b.pos[0]-px,b.pos[2]-pz)||a.id.localeCompare(b.id));
   const near=candidates.find(l=>Math.hypot(l.pos[0]-px,l.pos[2]-pz)<=2&&Math.abs(l.pos[1]-py)<=1.5);
   ui.objective.hidden=!near;
-  if(near)ui.objective.textContent=(mobile.matches?'Nạp':'E — Nạp ánh sáng')+' ('+near.deposited+'/10)';
+  if(near){
+    const prefix=isWeak(near)&&settings.accessible?'⚠ ':'';
+    ui.objective.textContent=prefix+(near.lit?(mobile.matches?'Châm dầu':'E — Châm dầu')+' · '+Math.floor(near.fuelUnits/60)+'%'
+      :(mobile.matches?'Nạp':'E — Nạp ánh sáng')+' ('+near.deposited+'/'+lightCost(near)+')');
+  }
   ui.direction.hidden=true;
   if(candidates[0]){
     projected.set(candidates[0].pos[0],candidates[0].pos[1]+2,candidates[0].pos[2]).project(camera);
@@ -925,15 +996,20 @@ function updateHud(px,py,pz,litCount){
     }
   }
   ui.lights.textContent=litCount+' / '+game.lanterns.length;
+  ui['dawn-goal'].textContent='Bình minh cần '+Math.ceil(.6*game.lanterns.length);
   const p=game.player;
-  ui.motes.textContent=p.carried+' / 10 đom đóm';
-  Array.from(ui.slots.children).forEach((slot,i)=>slot.classList.toggle('on',i<p.carried));
+  const limit=capacity(p);
+  ui.motes.textContent=p.carried+' / '+limit+' đom đóm';
+  Array.from(ui.slots.children).forEach((slot,i)=>{
+    slot.hidden=i>=limit;
+    slot.classList.toggle('on',i<p.carried);
+  });
   ui.flames.textContent='◆'.repeat(p.flames)+'◇'.repeat(3-p.flames);
   ui.score.textContent=campaignTotal+game.score;
   ui['dash-cd'].textContent='➤ Lướt '+(p.dashCd?(p.dashCd/60).toFixed(1)+' s':p.charm?'· Bùa Gió':'· Sẵn sàng');
   ui['pulse-cd'].textContent='✦ Tỏa sáng '+(p.pulseCd?(p.pulseCd/60).toFixed(1)+' s':'· '+p.carried+'/3');
   const seconds=Math.ceil(timeLeft(game));
-  ui.time.textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
+  ui.time.textContent=(seconds<=30&&settings.accessible?'⚠ ':'')+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
   ui.time.classList.toggle('danger',seconds<=30);
   if(seconds<=10&&seconds>0&&seconds!==lastCountdown){
     audio.play('countdown');lastCountdown=seconds;

@@ -28,11 +28,12 @@ export function createPulseDragons(scene) {
   sparks.frustumCulled=false;
   aura.add(sparks);
   const metal=(color,emissive)=>new T.MeshStandardMaterial({
-    color,emissive,emissiveIntensity:.48,roughness:.38,metalness:.28,
+    color,emissive,emissiveIntensity:.31,roughness:.58,metalness:.18,flatShading:true,
   });
-  const gold=metal('#e5a029','#7a3809');
+  const gold=metal('#a8501f','#62290b');
+  const belly=metal('#e08932','#6e3610');
   const bright=metal('#ffc763','#a95a10');
-  const mane=metal('#ffaf26','#bb5c09');
+  const mane=metal('#ffc048','#a6560e');
   const ivory=new T.MeshBasicMaterial({color:'#ffe7a5',toneMapped:false});
   const red=new T.MeshBasicMaterial({color:'#f66e26',toneMapped:false});
   const mouth=new T.MeshBasicMaterial({color:'#451b20'});
@@ -54,7 +55,7 @@ export function createPulseDragons(scene) {
     vector(.28,.66,-1.88),vector(-.40,.81,-2.36),vector(-.72,.43,-2.89),
     vector(-.42,.16,-3.38),vector(.15,.36,-3.84),vector(.38,.63,-4.20),
   ]);
-  const rings=36,sides=9,vertices=[],indices=[];
+  const rings=36,sides=7,vertices=[],indices=[];
   for(let i=0;i<=rings;i++){
     const t=i/rings, center=spine.getPointAt(t), tangent=spine.getTangentAt(t);
     const side=vector(0,1,0).cross(tangent).normalize(), up=tangent.clone().cross(side).normalize();
@@ -73,13 +74,19 @@ export function createPulseDragons(scene) {
   tube.setAttribute('position',new T.Float32BufferAttribute(vertices,3));tube.setIndex(indices);tube.computeVertexNormals();
   gold.side=T.DoubleSide;
   mesh(dragon,tube,gold,0,0,0,1,1,1);
+  for(let i=2;i<24;i++){
+    const t=i/26,p=spine.getPointAt(t);
+    const radius=.23*(1-t)**.62+.025;
+    const plate=mesh(dragon,poly,belly,p.x,p.y-radius*.78,p.z,radius*.88,.045,.079);
+    plate.rotation.y=i*.09;
+  }
   for(let i=2;i<19;i++){
     const t=i/20,p=spine.getPointAt(t);
-    const scale=.122*(1-t)+.035;
+    const scale=.149*(1-t)+.035;
     for(let j=0;j<4;j++){
       const a=j*1.42+i*.47;
       mesh(dragon,poly,j===0?bright:gold,p.x+Math.cos(a)*scale*1.25,p.y+Math.sin(a)*scale*1.3,p.z,
-        scale*.77,scale*.48,scale*1.16);
+        scale*.70,scale*.39,scale*1.27);
     }
     if(i<17){
       const crest=mesh(dragon,spike,mane,p.x,p.y+scale*1.8,p.z,scale*.78,scale*2.0,scale*.75);
@@ -87,12 +94,15 @@ export function createPulseDragons(scene) {
     }
   }
   const head=new T.Group();head.position.set(0,.51,.12);dragon.add(head);
-  mesh(head,sphere,gold,0,0,0,.33,.30,.42);
-  mesh(head,sphere,bright,0,-.055,.35,.29,.145,.34);
+  mesh(head,poly,gold,0,0,0,.39,.33,.48);
+  mesh(head,poly,bright,0,-.055,.40,.29,.17,.37);
+  mesh(head,poly,gold,0,.21,-.08,.17,.27,.31);
   mesh(head,sphere,mouth,0,-.18,.26,.25,.15,.29);
   mesh(head,sphere,gold,0,-.30,.30,.25,.095,.33);
   for(const side of [-1,1]){
-    mesh(head,poly,red,side*.238,.084,.265,.086,.059,.085);
+    const brow=mesh(head,poly,mane,side*.25,.17,.24,.20,.066,.21);
+    brow.rotation.z=side*.33;
+    mesh(head,poly,red,side*.263,.095,.310,.093,.054,.101);
     mesh(head,poly,ivory,side*.245,.092,.319,.029,.025,.024);
     mesh(head,poly,mouth,side*.145,-.01,.61,.051,.033,.037);
     for(let j=0;j<3;j++){
@@ -142,7 +152,7 @@ export function createPulseDragons(scene) {
   return {
     start(x,y,z){root.position.set(x,y+.83,z);aura.position.set(x,y+.12,z);},
     update(age){
-      const t=age/1.45;
+      const t=age/1.65;
       root.visible=t>=0&&t<1;
       aura.visible=root.visible;
       if(!root.visible)return;
@@ -163,10 +173,12 @@ export function createPulseDragons(scene) {
       sparkGeometry.attributes.position.needsUpdate=true;
       sparkMaterial.opacity=(1-t)*.84;
       for(const [i,rig] of dragons.entries()){
-        const angle=i*Math.PI/3+t*.66;
-        const span=1.3+6.4*(1-(1-t)**2);
-        rig.position.set(Math.cos(angle)*span,.18+Math.sin(t*Math.PI)*1.52,Math.sin(angle)*span);
-        rig.rotation.set(.09+Math.sin(t*8+i)*.20,Math.PI/2-angle,-.13+Math.sin(t*7+i)*.27,'YXZ');
+        const angle=i*Math.PI/3+t*.85;
+        const span=1.25+6.5*(1-(1-t)**2);
+        const rise=.14+Math.sin(t*Math.PI)*(.85+(i%2)*1.3);
+        rig.position.set(Math.cos(angle)*span,rise,Math.sin(angle)*span);
+        rig.rotation.set(-.37*Math.cos(t*Math.PI)+Math.sin(t*8+i)*.10,
+          Math.PI/2-angle+.18,-.17+Math.sin(t*7+i)*.32,'YXZ');
         rig.scale.setScalar(Math.min(1.12,.55+t*4,(1-t)*8));
       }
     }

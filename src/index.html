@@ -10,7 +10,7 @@
 .corner,.timer,.carry,.cooldowns,.touch,.pointer{position:fixed}.corner{top:22px;padding:9px 14px;border:1px solid var(--line);border-radius:12px;background:var(--frame);font-variant-numeric:tabular-nums}
 .left{left:22px}.right{right:22px;text-align:right}.corner b{color:var(--gold);font-size:17px}.corner small{display:block;color:var(--paper);opacity:.79}
 .timer{top:19px;left:50%;transform:translateX(-50%);font-size:24px;font-weight:750;padding:4px 13px;background:var(--frame);border-radius:10px;font-variant-numeric:tabular-nums}
-.danger{color:var(--danger);animation:blink .8s infinite alternate}@keyframes blink{to{opacity:.57}}
+.accessible{--danger:#FFFFFF}.danger{color:var(--danger);animation:blink .8s infinite alternate}@keyframes blink{to{opacity:.57}}
 .carry{bottom:50px;left:50%;transform:translateX(-50%);text-align:center;padding:9px 14px;border:1px solid var(--line);border-radius:13px;background:var(--frame)}
 #slots{display:flex;gap:4px;justify-content:center}.slot{width:13px;height:7px;border-radius:4px;background:#1b2350}.slot.on{background:#FFE58A;box-shadow:0 0 10px #ffb34799}
 #objective{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);max-width:94vw;text-align:center;margin:0;padding:4px 11px;background:var(--frame);border-radius:8px;font-size:13px}
@@ -51,8 +51,8 @@ label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}inpu
 <main>
 <div id="hud" hidden>
   <div class="corner left"><small id="night-label"></small><b id="flames"></b><small>Ngọn Lửa</small></div>
-  <div class="timer" id="time">5:00</div><span id="fps" class="fps">— FPS</span>
-  <div class="corner right"><b id="lights"></b><small>Đèn đã thắp</small><b id="score"></b><small>Điểm</small><button id="pause" class="pause" type="button">Tạm dừng</button><button id="quick" class="quick" type="button">Qua Đêm nhanh</button></div>
+  <div class="timer" id="time">4:00</div><span id="fps" class="fps">— FPS</span>
+  <div class="corner right"><b id="lights"></b><small id="dawn-goal"></small><b id="score"></b><small>Điểm</small><button id="pause" class="pause" type="button">Tạm dừng</button><button id="quick" class="quick" type="button">Qua Đêm nhanh</button></div>
   <div class="carry"><small id="motes"></small><div id="slots"></div></div>
   <div class="cooldowns"><span id="dash-cd"></span><span id="pulse-cd"></span></div>
   <canvas id="map" width="180" height="180" aria-label="Bản đồ"></canvas>
@@ -65,7 +65,7 @@ label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}inpu
 <section id="settings" class="panel" hidden><h2>Cài đặt</h2><label>Âm lượng<input id="volume" type="range" min="0" max="1" step=".05"></label><label>Độ nhạy chuột<input id="sensitivity" type="range" min=".2" max="2" step=".1"></label><div class="settings-grid">
 <label>Giới hạn FPS<select id="frame-limit"><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option><option value="0">Không giới hạn</option></select></label>
 <label>Chất lượng hình<select id="quality"><option value="light">Nhẹ</option><option value="balanced">Cân bằng</option><option value="sharp">Sắc nét</option></select></label>
-</div><button id="back">Quay lại</button></section>
+</div><label class="color-setting"><span><input id="color-mode" type="checkbox"> Bảng màu dễ phân biệt</span></label><button id="back">Quay lại</button></section>
 <section id="ending" class="panel" hidden><p id="result-label" class="kicker"></p><h2 id="result"></h2><p id="summary"></p><div class="buttons"><button id="restart" class="primary">Chơi lại đêm</button><button id="next" class="primary">Đêm kế tiếp</button><button id="end-menu">Về menu</button></div></section>
 <div id="signature" class="signature" hidden aria-label="Chữ ký Hai Anh">
 <svg viewBox="0 0 240 124" role="img" aria-label="Chữ ký Hai Anh">

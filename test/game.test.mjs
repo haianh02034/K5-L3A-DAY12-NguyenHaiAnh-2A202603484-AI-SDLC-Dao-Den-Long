@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { slideMovement } from '../src/collision.mjs';
+import { capacity } from '../src/lanterns.mjs';
 import { createGame, idleInput, step, tuning } from '../src/game.mjs';
 
 const quiet = { random_motes: false, random_shades: false };
@@ -14,20 +15,23 @@ test('movement applies camera rotation, normalization and jump', () => {
   for (let i = 0; i < 65; i++) step(g, input({ jump: true }));
   assert.equal(g.player.pos[1], 0);
 });
-test('pickup, partial deposit, held interaction and five lights', () => {
+test('pickup, partial deposit, held interaction and lighting without an early win', () => {
   const g = createGame(9, { ...quiet, motes: [[0,0,0]],
-    lanterns: Array.from({ length: 5 }, (_, i) => ({ id: 'L'+(i+1), pos: [0,0,0] })),
+    lanterns: Array.from({ length: 5 }, (_, i) => ({ id: 'L'+(i+1), pos: [i*4,0,0] })),
   });
   assert.deepEqual(step(g, input({ interact: true })).map(x => x.name), ['mote_picked', 'deposit']);
   assert.equal(g.lanterns[0].deposited, 1);
   g.player.carried = 10;
   assert.deepEqual(step(g, input({ interact: true })), []);
   for (let i = 0; i < 5; i++) {
+    g.player.pos=[i*4,0,0];
     step(g);
     g.player.carried = 10;
     step(g, input({ interact: true }));
   }
-  assert.equal(g.state, 'won');
+  assert.equal(g.state,'playing');
+  assert.equal(g.lanterns.filter(l=>l.lit).length,5);
+  assert.equal(capacity(g.player),20);
 });
 test('pulse spends light and stuns; safe lantern repels shades; dawn ends a run', () => {
   const g = createGame(9, { ...quiet, player: { carried: 3 }, shades: [{ pos: [2,0,0] }], time_left_s: 1,
@@ -207,4 +211,56 @@ test('browser play pulls nearby motes and shades advance a little slower', () =>
   assert.equal(browser.player.carried,1);
   assert.equal(headless.player.carried,0);
   assert.ok(browser.shades[0].pos[0]>headless.shades[0].pos[0]);
+});
+
+test('fuel drains exactly, goes out, relights for five and raises carrying capacity',()=>{
+  const g=createGame(44,{...quiet,player:{carried:5},lanterns:[{id:'L1',pos:[0,0,0],lit:true,fuel:1}]});
+  for(let i=0;i<59;i++)step(g);
+  assert.equal(g.lanterns[0].fuelUnits,1);
+  const events=step(g,input({interact:true}));
+  assert.deepEqual(events.map(e=>e.name),['lantern_out','deposit','lantern_lit']);
+  assert.deepEqual(events.at(-1).data,{lantern_id:'L1',relight:true});
+  assert.equal(g.lanterns[0].relit_count,1);
+  assert.equal(g.lanterns[0].fuelUnits,6000);
+  assert.equal(capacity(g.player),12);
+  assert.equal(g.score,65);
+});
+
+test('two shades drain together, and a refill restores the ward',()=>{
+  const g=createGame(44,{...quiet,player:{pos:[20,0,0],carried:2},lanterns:[{id:'L1',pos:[0,0,0],lit:true,fuel:29}],
+    shades:[{pos:[1,0,0],state:'drain',target_lantern_id:'L1'},{pos:[-1,0,0],state:'drain',target_lantern_id:'L1'}]});
+  for(let i=0;i<59;i++)step(g);
+  const events=step(g);
+  assert.equal(g.lanterns[0].fuelUnits,18*60);
+  assert.equal(events.filter(e=>e.name==='fuel_drain').length,2);
+  g.player.pos=[0,0,0];
+  assert.equal(step(g,input({interact:true}))[0].name,'refuel');
+  for(let i=1;i<30;i++)step(g);
+  assert.ok(g.shades.every(s=>Math.hypot(s.pos[0],s.pos[2])>=6-1e-8));
+  assert.equal(g.player.flames,3);
+});
+
+test('Q marks a draining shade, pushes it for 4 m and leaves out-of-range targets alone',()=>{
+  const g=createGame(44,{...quiet,player:{carried:3},lanterns:[{id:'L1',pos:[4,0,0],lit:true,fuel:25}],
+    shades:[{pos:[4,0,0],state:'drain',target_lantern_id:'L1'},{pos:[0,6,0],id:'S9'}]});
+  assert.deepEqual(step(g,input({pulse:true})).find(e=>e.name==='pulse').data.stunned_ids,['S1']);
+  assert.equal(g.score,15);
+  for(let i=1;i<15;i++)step(g);
+  assert.ok(Math.abs(g.shades[0].pos[0]-8)<1e-8);
+  assert.equal(g.shades[0].state,'stunned');
+  assert.notEqual(g.shades[1].state,'stunned');
+});
+
+test('dawn thresholds are 3, 4, and 5; running out of flames always takes priority',()=>{
+  for(const night of [1,2,3]){
+    const needed=night+2;
+    const lanterns=Array.from({length:needed},(_,i)=>({id:'L'+(i+1),lit:true,fuel:74}));
+    const winner=createGame(1,{...quiet,player:{flames:2},lanterns,time_left_s:1/60},night);
+    assert.deepEqual(step(winner).at(-1).data,{result:'won',reason:'dawn_survived'});
+    assert.equal(winner.score,needed*(50+73)+100);
+    const lose=createGame(1,{...quiet,lanterns:lanterns.slice(1),time_left_s:1/60},night);
+    assert.equal(step(lose).at(-1).data.reason,'dawn');
+    const empty=createGame(1,{...quiet,player:{flames:0},lanterns,time_left_s:1/60},night);
+    assert.equal(step(empty).at(-1).data.reason,'no_flames');
+  }
 });

@@ -1,5 +1,6 @@
 import contract from '../game.contract.json' with { type: 'json' };
 import { maps, surface } from './maps.mjs';
+import { burnFuel, canReceive, capacity, createLantern, deposit, isSafe, isWeak } from './lanterns.mjs';
 
 export const tuning=contract.tuning;
 export const idleInput={move:[0,0],cam_yaw_deg:0,jump:false,interact:false,pulse:false,dash:false,pause:false};
@@ -48,17 +49,17 @@ export function createGame(seed=maps[0].seed, scenario={}, night=1, practice=fal
     night,map,random,practice,browser,moteSpawns,moteLimit,moteInterval,spotCooldowns:browser?new Map():null,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
     initialTime:scenario.time_left_s??tuning['night'+night+'_duration_s'],
     player:{pos,vel:[0,0,0],grounded:pos[1]===surface(night,pos[0],pos[2]),flames:p.flames??3,carried:p.carried??0,
-      facing:[0,1],invuln:p.invuln_ticks??0,dashCd:p.dash_cd_ticks??0,pulseCd:p.pulse_cd_ticks??0,
+      facing:[0,1],successfulLights:p.successful_lights??0,invuln:p.invuln_ticks??0,dashCd:p.dash_cd_ticks??0,pulseCd:p.pulse_cd_ticks??0,
       charm:p.charm_ticks??0,dash:0,launch:null,fall:0},
     lanterns:map.lanterns.map(({id,pos})=>{
       const l=scenario.lanterns?.find(v=>v.id===id);
-      return {id,pos:[...(l?.pos??pos)],lit:l?.lit??false,deposited:l?.deposited??(l?.lit?10:0)};
+      return createLantern(id,pos,l);
     }),
     motes:(scenario.motes??(scenario.random_motes===false?[]:locations)).map((p,i)=>
       ({id:'M'+(i+1),pos:[...p],kind:'random',ttl:null,available:0})),
     nextMote:(scenario.motes??(scenario.random_motes===false?[]:locations)).length+1,
     shades:shades.map(s=>({id:s.id??nextShade(),pos:[...s.pos],state:s.state??'wander',
-      left:s.state_ticks_left??0,push:0,direction:[1,0],ward:null})),
+      left:s.state_ticks_left??0,targetLanternId:s.target_lantern_id??null,push:0,direction:[1,0],ward:null})),
     drifters:drifters.map(d=>({id:d.id??nextDrifter(),pos:[...d.pos],state:d.state??'idle',
       stolen:d.stolen??0,left:d.state_ticks_left??(d.state==='flee'?240:0),direction:[1,0]})),
     charms:(scenario.charms??map.charms.map(pos=>({pos}))).map((c,i)=>({id:c.id??'C'+(i+1),
@@ -162,7 +163,14 @@ function drop(g,count,pos,ring) {
 
 function driveShade(g,s,lit,resolve) {
   const p=g.player.pos;
+  if(s.state==='drain'){
+    const l=g.lanterns.find(l=>l.id===s.targetLanternId);
+    if(distance(s.pos,p)<=6){s.state='chase';s.targetLanternId=null;}
+    else if(!l||!isWeak(l)||distance(l.pos,s.pos)>2){s.state='wander';s.targetLanternId=null;}
+    else return false;
+  }
   const ward=lit.find(l=>distance(l.pos,s.pos)<6-1e-9&&Math.abs(l.pos[1]-s.pos[1])<=1.5);
+  if(s.ward&&!isSafe(s.ward.lantern))s.ward=null;
   if(ward&&!s.ward)s.ward={lantern:ward,ticks:30};
   if(s.ward){
     const {lantern:l}=s.ward;
@@ -173,7 +181,7 @@ function driveShade(g,s,lit,resolve) {
     if(!s.ward.ticks)s.ward=null;
     return false;
   }
-  let dx=0,dz=0;
+  let dx=0,dz=0,drainTarget=null;
   if(s.state==='spawning'&&s.left>0)return false;
   if(s.state==='stunned'&&s.left>0){
     if(s.push<=0)return false;
@@ -184,15 +192,28 @@ function driveShade(g,s,lit,resolve) {
   }else{
     const d=distance(p,s.pos);
     const speed=(g.night===3?4.5:4)*(g.browser?.86:1)/hz;
-    const notice=g.browser?(g.practice?48:40):(g.practice?21:12);
+    const contesting=g.browser&&s.state==='wander'&&g.lanterns.some(isWeak);
+    const notice=g.browser&&!contesting?(g.practice?48:40):(g.practice?21:12);
     const leash=g.browser?(g.practice?65:56):(g.practice?29:18);
     if(d<=notice||(s.state==='chase'&&d<=leash)){
       s.state='chase';
       [dx,dz]=d?unit(p[0]-s.pos[0],p[2]-s.pos[2]).map(v=>v*Math.min(speed,d)):[0,0];
     }else{
       s.state='wander';
-      const a=Number(s.id.replace(/^\D+/,''))||1;
-      if(g.browser&&d>notice){
+      const candidate=g.lanterns.filter(l=>isWeak(l)||!l.lit).sort((a,b)=>
+        Number(isWeak(b))-Number(isWeak(a))||distance(a.pos,s.pos)-distance(b.pos,s.pos)||byId(a,b))[0];
+      const a=Number(s.id.slice(1))||1;
+      if(candidate){
+        const range=distance(candidate.pos,s.pos);
+        if(isWeak(candidate))drainTarget=candidate;
+        if(drainTarget&&range<=2){
+          s.state='drain';s.targetLanternId=candidate.id;return false;
+        }
+        if(range){
+          const dir=unit(candidate.pos[0]-s.pos[0],candidate.pos[2]-s.pos[2]);
+          [dx,dz]=dir.map(v=>v*Math.min(speed,range));
+        }
+      }else if(g.browser&&d>notice){
         const home=g.map.zones.reduce((closest,zone)=>
           Math.abs(zone.x-s.pos[0])<Math.abs(closest.x-s.pos[0])?zone:closest);
         const headings=unit(home.x-s.pos[0],-s.pos[2]);
@@ -212,6 +233,10 @@ function driveShade(g,s,lit,resolve) {
   if(walking&&resolve)[nx,nz]=resolve(s.pos[0],s.pos[2],nx,nz,0);
   let floor=surface(g.night,nx,nz);
   let terrainBlocks=groundBlocks(nx,nz,floor);
+  if(s.state==='stunned'&&resolve&&!terrainBlocks){
+    const [tx,tz]=resolve(s.pos[0],s.pos[2],nx,nz,0);
+    terrainBlocks=Math.hypot(tx-nx,tz-nz)>1e-7;
+  }
   if(walking&&(terrainBlocks||(nx===s.pos[0]&&nz===s.pos[2]))&&(dx||dz)){
     const sign=s.steerSide??1;
     for(const turn of [.55,1.05,1.58,2.08,-.55,-1.05,-1.58,-2.08]){
@@ -236,6 +261,9 @@ function driveShade(g,s,lit,resolve) {
     const a=dx*dx+dz*dz,b=x*dx+z*dz,c=x*x+z*z-36;
     const t=Math.max(0,(-b-Math.sqrt(Math.max(0,b*b-a*c)))/a);
     if(Number.isFinite(t)){s.pos[0]+=dx*t;s.pos[2]+=dz*t;}
+  }
+  if(drainTarget&&distance(drainTarget.pos,s.pos)<=2){
+    s.state='drain';s.targetLanternId=drainTarget.id;return false;
   }
   return s.state==='chase'||s.state==='wander';
 }
@@ -300,6 +328,7 @@ export function step(g,input=idleInput,resolve=null){
   for(const shade of g.shades){
     if(shade.left>0&&--shade.left===0&&shade.state!=='wander')shade.state='wander';
   }
+  burnFuel(g,emit);
   g.motes=g.motes.filter(m=>m.ttl===null||m.ttl>g.simTick);
   for(const c of g.charms)if(c.respawn>0&&--c.respawn===0)c.available=true;
   if(g.windEnabled){
@@ -310,7 +339,7 @@ export function step(g,input=idleInput,resolve=null){
   movePlayer(g,input,pressed,emit,resolve);
   if(!p.fall&&p.flames>0){
     g.motes=g.motes.filter(m=>{
-      if(p.carried>=10||m.available>g.simTick||!inReach(m.pos,p.pos,g.browser?2.05:1))return true;
+      if(p.carried>=capacity(p)||m.available>g.simTick||!inReach(m.pos,p.pos,g.browser?2.05:1))return true;
       if(g.spotCooldowns&&m.kind==='random')g.spotCooldowns.set(m.pos.join(','),g.simTick+18*hz);
       emit('mote_picked',{carried:++p.carried});return false;
     });
@@ -320,26 +349,22 @@ export function step(g,input=idleInput,resolve=null){
       emit('charm_picked',{charm_id:c.id,charm_ticks:600});
     }
     if(pressed('interact')&&p.carried){
-      const l=g.lanterns.filter(l=>!l.lit&&inReach(l.pos,p.pos,2))
+      const l=g.lanterns.filter(l=>canReceive(l)&&inReach(l.pos,p.pos,2))
         .sort((a,b)=>distance(a.pos,p.pos)-distance(b.pos,p.pos)||byId(a,b))[0];
-      if(l){
-        const amount=Math.min(p.carried,10-l.deposited);
-        p.carried-=amount;l.deposited+=amount;g.score+=10*amount;
-        emit('deposit',{lantern_id:l.id,amount,deposited:l.deposited});
-        if(l.deposited===10){l.lit=true;g.score+=100;emit('lantern_lit',{lantern_id:l.id});}
-      }
+      if(l)deposit(g,l,emit);
     }
   }
-  const lit=g.lanterns.filter(l=>l.lit);
+  const safe=g.lanterns.filter(isSafe);
   if(!p.fall&&pressed('pulse')&&p.carried>=3&&!p.pulseCd){
     p.carried-=3;p.pulseCd=180;
     const center=[p.pos[0],p.pos[1]+.8,p.pos[2]];
     const targets=g.shades.filter(s=>length3(s.pos,center)<=5).sort(byId);
     for(const s of targets){
+      g.score+=s.state==='drain'?15:5;
+      s.targetLanternId=null;
       s.state='stunned';s.left=120;s.push=15;
       s.direction=unit(s.pos[0]-center[0],s.pos[2]-center[2]);
     }
-    g.score+=5*targets.length;
     emit('pulse',{stunned_ids:targets.map(s=>s.id)});
     for(const d of g.drifters){
       if(length3(d.pos,center)>5)continue;
@@ -350,7 +375,7 @@ export function step(g,input=idleInput,resolve=null){
       }
     }
   }
-  const dangerous=g.shades.filter(s=>driveShade(g,s,lit,resolve)).sort(byId);
+  const dangerous=g.shades.filter(s=>driveShade(g,s,safe,resolve)).sort(byId);
   for(const d of g.drifters)moveDrifter(g,d);
   if(!p.fall&&p.flames>0){
     for(const d of g.drifters){
@@ -370,10 +395,12 @@ export function step(g,input=idleInput,resolve=null){
   }
   spawn(g,emit);
   g.previous={...input};
-  const reason=p.flames<=0?'no_flames':lit.length===g.lanterns.length?'all_lit':timeLeft(g)===0?'dawn':null;
+  const lit=g.lanterns.filter(l=>l.lit);
+  const survived=lit.length>=Math.ceil(.6*g.lanterns.length);
+  const reason=p.flames<=0?'no_flames':timeLeft(g)===0?(survived?'dawn_survived':'dawn'):null;
   if(reason){
-    g.state=reason==='all_lit'?'won':'lost';
-    if(g.state==='won')g.score+=Math.floor(timeLeft(g))*2+p.flames*50;
+    g.state=reason==='dawn_survived'?'won':'lost';
+    if(g.state==='won')g.score+=lit.reduce((score,l)=>score+50+Math.floor(l.fuelUnits/60),p.flames*50);
     emit('game_over',{result:g.state,reason});
   }
   return events;
