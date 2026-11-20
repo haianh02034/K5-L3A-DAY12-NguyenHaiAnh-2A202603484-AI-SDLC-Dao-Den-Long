@@ -1,1 +1,1 @@
-Fix pulse knockback inside wards and at obstacles
+Show which pulse targets were blocked or repelled

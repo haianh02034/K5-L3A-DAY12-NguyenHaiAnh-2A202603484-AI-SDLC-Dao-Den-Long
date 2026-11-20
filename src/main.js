@@ -450,7 +450,7 @@ const carriedLight=new T.PointLight('#ffb170',47,13,2);
 scene.add(carriedLight);
 const pulseRing=model(scene,new T.RingGeometry(.90,1,64),flat('#ffc879',{transparent:true,opacity:0,side:T.DoubleSide,depthWrite:false}),0,.35,0);
 pulseRing.rotation.x=-Math.PI/2;
-let pulseAge=2,pulseHits=[];
+let pulseAge=2,pulseHits=[],pulseDeniedUntil=0,pulseDeniedText='';
 const dragons=createPulseDragons(scene);
 const guardianAura=new T.Group();
 scene.add(guardianAura);
@@ -479,6 +479,19 @@ function mote() {
 const ninjaBlack=material('#120A1A');
 const ninjaWrap=material('#292139',{flatShading:true});
 const ninjaSteel=material('#aa8fb3',{metalness:.38,roughness:.31});
+const stunCanvas=document.createElement('canvas');
+stunCanvas.width=stunCanvas.height=96;
+const stunContext=stunCanvas.getContext('2d');
+stunContext.font='bold 72px "Segoe UI Symbol",sans-serif';
+stunContext.textAlign='center';
+stunContext.textBaseline='middle';
+stunContext.lineWidth=8;
+stunContext.strokeStyle='#292033';
+stunContext.strokeText('✦',48,49);
+stunContext.fillStyle='#ffe3a0';
+stunContext.fillText('✦',48,49);
+const stunTexture=new T.CanvasTexture(stunCanvas);
+stunTexture.colorSpace=T.SRGBColorSpace;
 const ninjaEyes=flat('#7A3CFF',{toneMapped:false});
 function shade() {
   const g=new T.Group();
@@ -519,7 +532,14 @@ function shade() {
   });
   const scarf=model(body,cube,ninjaWrap,-.17,1.76,-.64,.18,.065,.90);
   const halo=sprite(g,0,1.17,-.48,5.4,5.4,'#7A3CFF',.37);
-  return {g,halo,body,feet,scarf,bladeArm};
+  const stunIcon=new T.Sprite(new T.SpriteMaterial({
+    map:stunTexture,depthTest:false,depthWrite:false,toneMapped:false,
+  }));
+  stunIcon.visible=false;
+  stunIcon.renderOrder=50;
+  stunIcon.position.set(0,3,0);
+  g.add(stunIcon);
+  return {g,halo,body,feet,scarf,bladeArm,stunIcon};
 }
 
 const read=(storage,key,fallback)=>{
@@ -620,7 +640,7 @@ function reset(){
   drifterScenes.clear();moteScenes=new Map();shadeScenes=new Map();
   game=createGame(island.seed,{},nightNumber,true);
   priorPosition=[...game.player.pos];nextHud=0;accumulator=0;
-  aim.set(game.player.pos[0],1,game.player.pos[2]-3);target=null;pulseAge=2;lastCountdown=11;lastWind=false;
+  aim.set(game.player.pos[0],1,game.player.pos[2]-3);target=null;pulseAge=2;pulseDeniedUntil=0;lastCountdown=11;lastWind=false;
   ui.pause.hidden=false;
   show('playing');audio.start();
 }
@@ -814,7 +834,7 @@ function populate(time){
   }
   for(const s of game.shades){
     if(!shadeScenes.has(s.id))shadeScenes.set(s.id,shade());
-    const {g,halo,body,feet,scarf,bladeArm}=shadeScenes.get(s.id);
+    const {g,halo,body,feet,scarf,bladeArm,stunIcon}=shadeScenes.get(s.id);
     g.position.set(s.pos[0],s.pos[1]+.12,s.pos[2]);
     const moving=s.state==='chase';
     g.lookAt(game.player.pos[0],g.position.y,game.player.pos[2]);
@@ -825,6 +845,12 @@ function populate(time){
     bladeArm.rotation.x=moving?-.42+Math.sin(time*13)*.21:.36;
     halo.material.color.set(s.state==='stunned'?'#3A3450':settings.accessible?'#00B3FF':'#7A3CFF');
     if(s.state==='drain')body.rotation.x=.43;
+    stunIcon.visible=s.state==='stunned';
+    if(stunIcon.visible){
+      const size=1.28+.19*Math.sin(time*7);
+      stunIcon.scale.set(size,size,1);
+      stunIcon.position.y=2.92+.16*Math.sin(time*5);
+    }
     if(s.state==='stunned'){
       body.rotation.x=.22+Math.max(0,s.left-105)*.035;
       body.rotation.z=Math.sin(time*21)*Math.max(0,s.left-104)*.012;
@@ -876,11 +902,16 @@ renderer.setAnimationLoop(now=>{
     priorPosition[2]=position[2];
     const wasGrounded=game.player.grounded;
     const events=step(game,input,canMove);
+    if(input.pulse&&!events.some(e=>e.name==='pulse')&&!game.player.fall){
+      pulseDeniedText=game.player.pulseCd>0?'Q · Đang hồi chiêu':'Q · Cần 3 đom đóm';
+      pulseDeniedUntil=game.simTick+84;
+    }
     if(wasGrounded&&!game.player.grounded&&game.player.vel[1]>0)audio.play('jump');
     for(const e of events){
       if(e.name==='pulse'){
         pulseAge=0;
         pulseHits=e.data.stunned_ids;
+        pulseDeniedUntil=0;
         dragons.start(...game.player.pos);
         pulseRing.position.set(game.player.pos[0],game.player.pos[1]+.22,game.player.pos[2]);
       }
@@ -1013,7 +1044,9 @@ function updateHud(px,py,pz,litCount){
   ui.flames.textContent='◆'.repeat(p.flames)+'◇'.repeat(3-p.flames);
   ui.score.textContent=campaignTotal+game.score;
   ui['dash-cd'].textContent='➤ Lướt '+(p.dashCd?(p.dashCd/60).toFixed(1)+' s':p.charm?'· Bùa Gió':'· Sẵn sàng');
-  if(pulseAge<1.7){
+  if(game.simTick<pulseDeniedUntil){
+    ui['pulse-cd'].textContent=pulseDeniedText;
+  }else if(pulseAge<1.7){
     const effects=[];
     if(pulseHits.length){
       const blocked=game.shades.filter(s=>pulseHits.includes(s.id)&&s.pulseBlocked).length;
