@@ -23,30 +23,16 @@ function mint(items,prefix) {
   return ()=>{while(used.has(prefix+n))n++;return prefix+n++;};
 }
 
-export function createGame(seed=maps[0].seed, scenario={}, night=1, practice=false, browser=false) {
+export function createGame(seed=maps[0].seed, scenario={}, night=1, browser=false) {
   const map=maps[night-1], random=seeded(seed);
-  const moteSpawns=[...map.moteSpawns];
-  if(practice||browser){
-    for(const [x,y,z] of map.moteSpawns){
-      const next=[x+2.5,y,z+1.5];
-      if(surface(night,next[0],next[2])===y)moteSpawns.push(next);
-      if(browser){
-        const extra=[x-3.1,y,z-1.4];
-        if(surface(night,extra[0],extra[2])===y)moteSpawns.push(extra);
-      }
-    }
-  }
-  const initialMotes=browser?(practice?36:30):(practice?24:20);
-  const moteLimit=browser?(practice?48:42):(practice?36:30);
-  const moteInterval=browser?(practice?120:150):(practice?200:240);
-  const placed=[...moteSpawns], locations=[];
-  while(placed.length&&locations.length<initialMotes) locations.push(placed.splice(Math.floor(random()*placed.length),1)[0]);
+  const placed=[...map.moteSpawns], locations=[];
+  while(placed.length&&locations.length<20)locations.push(placed.splice(Math.floor(random()*placed.length),1)[0]);
   const p=scenario.player??{};
   const shades=scenario.shades??[], drifters=scenario.drifters??[];
   const nextShade=mint(shades,'S'),nextDrifter=mint(drifters,'D');
   const pos=[...(p.pos??map.spawn??[0,0,0])];
   return {
-    night,map,random,practice,browser,moteSpawns,moteLimit,moteInterval,spotCooldowns:browser?new Map():null,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
+    night,map,random,browser,tick:0,simTick:0,state:'playing',score:0,previous:{...idleInput},
     initialTime:scenario.time_left_s??tuning['night'+night+'_duration_s'],
     player:{pos,vel:[0,0,0],grounded:pos[1]===surface(night,pos[0],pos[2]),flames:p.flames??3,carried:p.carried??0,
       facing:[0,1],successfulLights:p.successful_lights??0,invuln:p.invuln_ticks??0,dashCd:p.dash_cd_ticks??0,pulseCd:p.pulse_cd_ticks??0,
@@ -90,7 +76,7 @@ function movePlayer(g,input,pressed,emit,resolve) {
   if(pressed('dash')&&!p.dash&&(!p.dashCd||p.charm)){
     p.dash=12;p.dashCd=p.charm?0:90;emit('dash',{});
   }
-  const walking=(p.charm?7.2:6)*(g.practice?1.2:1);
+  const walking=p.charm?7.2:6;
   let vx=world[0]*walking/Math.max(1,magnitude),vz=world[1]*walking/Math.max(1,magnitude);
   if(p.launch) [vx,vz]=p.launch;
   if(p.dash){vx=p.facing[0]*14;vz=p.facing[1]*14;}
@@ -161,8 +147,61 @@ function drop(g,count,pos,ring) {
   }
 }
 
+const bellRamps=[Math.PI/6,5*Math.PI/6].map(angle=>{
+  const point=r=>[r*Math.cos(angle),0,r*Math.sin(angle)];
+  return {foot:point(30.35),top:point(23.45)};
+});
+
+function shadeWaypoint(g,s,target) {
+  if(!g.browser||g.night!==3||target[1]<2.95)return target;
+  const floor=surface(g.night,s.pos[0],s.pos[2]);
+  if(floor<2.95){
+    const ramp=s.ramp??bellRamps.reduce((a,b)=>distance(a.foot,s.pos)<distance(b.foot,s.pos)?a:b);
+    if(s.ramp||floor>0||distance(ramp.foot,s.pos)<.23){
+      s.ramp=ramp;
+      return ramp.top;
+    }
+    return ramp.foot;
+  }
+  s.ramp=null;
+  if(target[1]>=5.95&&floor<5.95){
+    const pad=g.map.pads[0];
+    if(distance(s.pos,pad.pos)<=.40){
+      s.launch={vy:pad.up,speed:pad.speed};
+    }
+    return pad.pos;
+  }
+  return target;
+}
+
+function flyShade(g,s){
+  const trajectory=s.launch;
+  const [x,y,z]=s.pos;
+  let nx=x,nz=z-trajectory.speed/hz;
+  if(s.state==='stunned'){
+    const stride=s.push>0?4/15:0;
+    if(s.push>0)s.push--;
+    nx=x+s.direction[0]*stride;nz=z+s.direction[1]*stride;
+  }
+  let newY=y+trajectory.vy/hz-10/hz/hz;
+  trajectory.vy-=20/hz;
+  let floor=surface(g.night,nx,nz);
+  if(floor>y+.55||(floor===6&&Math.hypot(nx,nz)<2&&newY<14)){
+    nx=x;nz=z;floor=surface(g.night,x,z);
+    if(s.state==='stunned')s.push=0;
+  }
+  if(trajectory.vy<=0&&newY<=floor){
+    newY=floor;s.launch=null;
+  }else if(newY<0&&!Number.isFinite(floor)){
+    s.launch=null;
+    return;
+  }
+  s.pos=[nx,newY,nz];
+}
+
 function driveShade(g,s,lit,resolve) {
   const p=g.player.pos;
+  if(s.launch){flyShade(g,s);return false;}
   if(s.state==='drain'){
     const l=g.lanterns.find(l=>l.id===s.targetLanternId);
     if(distance(s.pos,p)<=6){s.state='chase';s.targetLanternId=null;}
@@ -191,13 +230,13 @@ function driveShade(g,s,lit,resolve) {
     [dx,dz]=s.direction.map(v=>v*2/60);
   }else{
     const d=distance(p,s.pos);
-    const speed=(g.night===3?4.5:4)*(g.browser?.86:1)/hz;
-    const contesting=g.browser&&s.state==='wander'&&g.lanterns.some(isWeak);
-    const notice=g.browser&&!contesting?(g.practice?48:40):(g.practice?21:12);
-    const leash=g.browser?(g.practice?65:56):(g.practice?29:18);
+    const speed=(g.night===3?tuning.shade_speed_night3:tuning.shade_speed)/hz;
+    const notice=12,leash=18;
     if(d<=notice||(s.state==='chase'&&d<=leash)){
       s.state='chase';
-      [dx,dz]=d?unit(p[0]-s.pos[0],p[2]-s.pos[2]).map(v=>v*Math.min(speed,d)):[0,0];
+      const target=shadeWaypoint(g,s,p);
+      const range=distance(target,s.pos);
+      if(range)[dx,dz]=unit(target[0]-s.pos[0],target[2]-s.pos[2]).map(v=>v*Math.min(speed,range));
     }else{
       s.state='wander';
       const candidate=g.lanterns.filter(l=>isWeak(l)||!l.lit).sort((a,b)=>
@@ -210,19 +249,16 @@ function driveShade(g,s,lit,resolve) {
           s.state='drain';s.targetLanternId=candidate.id;return false;
         }
         if(range){
-          const dir=unit(candidate.pos[0]-s.pos[0],candidate.pos[2]-s.pos[2]);
-          [dx,dz]=dir.map(v=>v*Math.min(speed,range));
+          const target=shadeWaypoint(g,s,candidate.pos);
+          const reach=distance(target,s.pos);
+          if(reach)[dx,dz]=unit(target[0]-s.pos[0],target[2]-s.pos[2]).map(v=>v*Math.min(speed,reach));
         }
-      }else if(g.browser&&d>notice){
-        const home=g.map.zones.reduce((closest,zone)=>
-          Math.abs(zone.x-s.pos[0])<Math.abs(closest.x-s.pos[0])?zone:closest);
-        const headings=unit(home.x-s.pos[0],-s.pos[2]);
-        [dx,dz]=headings.map(v=>v*speed*.65);
       }else{
         dx=Math.cos(g.simTick/139+a)*speed*.40;dz=Math.sin(g.simTick/139+a)*speed*.40;
       }
     }
   }
+  if(s.launch){flyShade(g,s);return false;}
   const currentFloor=surface(g.night,s.pos[0],s.pos[2]);
   const groundBlocks=(x,z,floor)=>!Number.isFinite(floor)||
     (Number.isFinite(currentFloor)&&Math.abs(floor-currentFloor)>.65)||
@@ -289,9 +325,8 @@ function moveDrifter(g,d) {
 
 function spawn(g,emit) {
   const t=g.simTick;
-  if(g.spawnMotes&&t%g.moteInterval===0&&g.motes.length<g.moteLimit){
-    const empty=g.moteSpawns.filter(pos=>(g.spotCooldowns?.get(pos.join(','))??0)<=t&&
-      !g.motes.some(m=>length3(m.pos,pos)<.01));
+  if(g.spawnMotes&&t%240===0&&g.motes.length<30){
+    const empty=g.map.moteSpawns.filter(pos=>!g.motes.some(m=>length3(m.pos,pos)<.01));
     if(empty.length)g.motes.push({id:'M'+g.nextMote++,pos:[...randomPick(empty,g.random)],
       kind:'random',ttl:null,available:t+1});
   }
@@ -339,8 +374,7 @@ export function step(g,input=idleInput,resolve=null){
   movePlayer(g,input,pressed,emit,resolve);
   if(!p.fall&&p.flames>0){
     g.motes=g.motes.filter(m=>{
-      if(p.carried>=capacity(p)||m.available>g.simTick||!inReach(m.pos,p.pos,g.browser?2.05:1))return true;
-      if(g.spotCooldowns&&m.kind==='random')g.spotCooldowns.set(m.pos.join(','),g.simTick+18*hz);
+      if(p.carried>=capacity(p)||m.available>g.simTick||!inReach(m.pos,p.pos,tuning.pickup_radius))return true;
       emit('mote_picked',{carried:++p.carried});return false;
     });
     for(const c of g.charms){

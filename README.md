@@ -10,7 +10,7 @@ npm run build
 npm start
 ```
 
-Mở http://127.0.0.1:4173 hoặc mở trực tiếp `dist/index.html` trong trình duyệt có WebGL 2. Vào menu, chọn **Bắt đầu** và giữ đủ đèn sáng tới bình minh để mở Đêm kế tiếp. Khi thua, có thể chơi lại Đêm đó. Tag `phase-1` chứa bản Đảo Bến ban đầu, tag `phase-2` chứa chiến dịch theo luật cũ. **Thử đảo** hoặc **Qua Đêm nhanh** mở ngay đảo cần kiểm tra, tăng 20% tốc độ chạy và có 36 đom đóm ban đầu thay vì 30; điểm lượt thử không cộng vào chiến dịch. Lăn chuột để thu hoặc mở rộng góc nhìn. Trong Cài đặt, chọn giới hạn FPS và chất lượng hình; HUD hiển thị FPS thực tế. Trong bản chơi, điểm vừa nhặt đom đóm được dùng lại sau ít nhất 18 giây.
+Mở http://127.0.0.1:4173 hoặc mở trực tiếp `dist/index.html` trong trình duyệt có WebGL 2. Vào menu, chọn **Bắt đầu** và giữ đủ đèn sáng tới bình minh để mở Đêm kế tiếp. Khi thua, có thể chơi lại Đêm đó. Tag `phase-1` chứa bản Đảo Bến ban đầu, tag `phase-2` chứa chiến dịch theo luật cũ. **Thử đảo** hoặc **Qua Đêm nhanh** mở ngay đảo cần kiểm tra; điểm lượt thử không cộng vào chiến dịch. Lăn chuột để thu hoặc mở rộng góc nhìn. Trong Cài đặt, chọn giới hạn FPS và chất lượng hình; HUD hiển thị FPS thực tế.
 
 - **WASD / phím mũi tên** để đi, **Space** để nhảy, **Shift** để lướt, **E** để nạp đèn, **Q** để tỏa sáng, **Esc / P** để tạm dừng. Nhấp lên mặt đất để chọn điểm đi, hoặc giữ chuột phải và kéo để xoay camera.
 - Thắp mới cần 10 đom đóm, thắp lại cần 5. Đứng cạnh đèn để châm dầu bằng **E**. Khi bình minh, cần ít nhất 3/5, 4/6 hoặc 5/7 đèn còn sáng tùy Đêm. Xem [công thức điểm và các thay đổi](docs/phase-3.md).

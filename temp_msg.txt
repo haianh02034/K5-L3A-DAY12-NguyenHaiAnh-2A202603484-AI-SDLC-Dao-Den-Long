@@ -1,1 +1,1 @@
-Use a diagonal camera and hide only contacted trees
+Implement lantern fuel and dawn rules for Phase 3

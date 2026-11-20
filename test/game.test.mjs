@@ -138,18 +138,6 @@ test('night three wind warns before pushing, then stops after five seconds',()=>
   assert.equal(g.wind.active,false);
 });
 
-test('practice uses 20 percent more speed and starting motes without changing Contract v1.1 defaults', () => {
-  for(const night of [1,2,3]){
-    const standard=createGame(5,{},night);
-    const preview=createGame(5,{},night,true);
-    assert.equal(standard.motes.length,20);
-    assert.equal(preview.motes.length,24);
-    step(standard,input({move:[1,0]}));
-    step(preview,input({move:[1,0]}));
-    assert.ok(Math.abs(preview.player.vel[0]-standard.player.vel[0]*1.2)<1e-8);
-  }
-});
-
 test('browser movement follows a terrace when the player holds forward into its wall', () => {
   const g=createGame(5,{...quiet,player:{pos:[0,0,24.6]}},3);
   for(let i=0;i<16;i++)step(g,input({move:[0,-1]}),(_x,_z,toX,toZ)=>[toX,toZ]);
@@ -157,60 +145,11 @@ test('browser movement follows a terrace when the player holds forward into its 
   assert.equal(g.player.pos[1],0);
 });
 
-test('the browser waits 18 s before reusing a collected spot without changing headless respawns', () => {
-  const scenario={random_shades:false,motes:[[0,0,0]]};
-  for(const browser of [false,true]){
-    const g=createGame(4,scenario,1,false,browser);
-    g.moteSpawns=[[0,0,0]];
-    assert.equal(step(g)[0].name,'mote_picked');
-    g.player.pos=[8,0,0];
-    for(let i=1;i<240;i++)step(g);
-    assert.equal(g.motes.length,browser?0:1);
-    if(browser){
-      for(let i=240;i<1200;i++)step(g);
-      assert.equal(g.motes.length,1);
-    }
-  }
-});
-
 test('a shade follows a terrace wall rather than stopping at the first blocked step', () => {
   const g=createGame(3,{...quiet,player:{pos:[0,3,20]},shades:[{pos:[0,0,24.4]}]},3);
   for(let i=0;i<30;i++)step(g);
   assert.ok(Math.abs(g.shades[0].pos[0])>.6);
   assert.equal(g.shades[0].pos[1],0);
-});
-
-test('browser nights start with a larger supply and replenish more often', () => {
-  for(const night of [1,2,3]){
-    const normal=createGame(7,{},night,false,true);
-    const practice=createGame(7,{},night,true,true);
-    assert.equal(normal.motes.length,30);
-    assert.equal(practice.motes.length,36);
-    assert.equal(normal.moteInterval,150);
-    assert.equal(practice.moteInterval,120);
-    assert.equal(createGame(7,{},night).motes.length,20);
-  }
-});
-
-test('browser shades notice Mây earlier and patrol inward from distant shores', () => {
-  const scenario={...quiet,shades:[{pos:[30,0,0]}]};
-  const browser=createGame(4,scenario,1,false,true);
-  const headless=createGame(4,scenario);
-  step(browser);step(headless);
-  assert.equal(browser.shades[0].state,'chase');
-  assert.equal(headless.shades[0].state,'wander');
-  const distant=createGame(4,{...quiet,player:{pos:[-30,0,0]},shades:[{pos:[37,0,0]}]},1,false,true);
-  for(let i=0;i<70;i++)step(distant);
-  assert.ok(distant.shades[0].pos[0]<35);
-});
-
-test('browser play pulls nearby motes and shades advance a little slower', () => {
-  const scenario={...quiet,motes:[[1.8,0,0]],shades:[{pos:[8,0,0]}]};
-  const browser=createGame(4,scenario,1,false,true), headless=createGame(4,scenario);
-  step(browser);step(headless);
-  assert.equal(browser.player.carried,1);
-  assert.equal(headless.player.carried,0);
-  assert.ok(browser.shades[0].pos[0]>headless.shades[0].pos[0]);
 });
 
 test('fuel drains exactly, goes out, relights for five and raises carrying capacity',()=>{
@@ -263,4 +202,36 @@ test('dawn thresholds are 3, 4, and 5; running out of flames always takes priori
     const empty=createGame(1,{...quiet,player:{flames:0},lanterns,time_left_s:1/60},night);
     assert.equal(step(empty).at(-1).data.reason,'no_flames');
   }
+});
+
+test('browser and headless use the same standard speed, pickup, detection and firefly spawn',()=>{
+  for(const night of [1,2,3]){
+    const browser=createGame(7,{},night,true), headless=createGame(7,{},night,false);
+    assert.equal(browser.motes.length,20);
+    assert.deepEqual(browser.motes,headless.motes);
+  }
+  for(const browser of [true,false]){
+    const g=createGame(7,{...quiet,motes:[[1.8,0,0]],shades:[{pos:[8,0,0]},{id:'S9',pos:[21,0,0]}]},1,browser);
+    step(g,input({move:[0,1]}));
+    assert.equal(g.player.vel[2],6);
+    assert.equal(g.player.carried,0);
+    assert.equal(g.shades[1].state,'wander');
+    assert.ok(Math.abs(Math.hypot(g.shades[0].pos[0]-8,g.shades[0].pos[2])-4/60)<1e-8);
+  }
+});
+test('a Night 3 shade follows the ramp and launch pad to reach the tower',()=>{
+  const lamps=[{id:'L1',pos:[0,6,6]}];
+  for(let i=2;i<=7;i++)lamps.push({id:'L'+i,pos:[-35,0,-20],lit:true});
+  const g=createGame(4,{...quiet,wind_enabled:false,player:{pos:[0,6,6.7],invuln_ticks:5000},
+    lanterns:lamps,shades:[{pos:[27,0,15]}]},3,true);
+  let climbed=false,launched=false;
+  for(let i=0;i<620;i++){
+    step(g);
+    climbed||=g.shades[0].pos[1]===3;
+    launched||=Boolean(g.shades[0].launch);
+    if(g.shades[0].pos[1]===6)break;
+  }
+  assert.equal(climbed,true);
+  assert.equal(launched,true);
+  assert.equal(g.shades[0].pos[1],6);
 });

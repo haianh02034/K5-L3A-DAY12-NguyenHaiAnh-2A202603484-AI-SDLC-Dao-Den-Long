@@ -14,6 +14,8 @@ Kiểm tra kết thúc sau mọi cập nhật của tick. Hết Ngọn Lửa ưu
 - Đèn có thể châm dầu hoặc tắt. Đèn dưới 30 dầu mất vùng an toàn và có thể bị hút.
 - Bỏ thắng sớm `all_lit`. Các Đêm kéo dài 240, 270 và 300 giây; thắng ở bình minh bằng `dawn_survived` khi còn 3, 4 hoặc 5 đèn.
 - Điểm mỗi đom đóm nạp là 5. Thắp lần đầu cộng 100, thắp lại cộng 40. Mỗi Bóng Mực trúng Q cộng 5, hoặc 15 nếu đang hút dầu. Khi thắng, mỗi đèn còn sáng cộng 50 và phần nguyên dầu còn lại; mỗi Ngọn Lửa còn lại cộng 50. Bỏ thưởng thời gian.
+- Bản chơi và Thử đảo dùng lại tốc độ, bán kính, số đom đóm và lịch sinh bắt buộc từ PDF. Các test dành riêng cho nới thông số trình duyệt được thay bằng test đối chiếu bản chơi với headless.
+- Đường đi qua dốc và bục nhảy có sẵn giúp Bóng Mực của bản 3D tiếp cận tầng tháp. Khoảng phát hiện vẫn là 12 m và bỏ đuổi ở 18 m; mô phỏng chấm giữ các quy tắc đã công bố.
 - Bài kiểm tra thắng ngay của Phase 2 được sửa thành giữ đủ đèn tới bình minh. Bài kiểm tra thao tác nạp dùng các đèn khác vị trí để phù hợp với luật chọn đèn gần nhất nhận được dầu.
 
 ## Kiểm chứng

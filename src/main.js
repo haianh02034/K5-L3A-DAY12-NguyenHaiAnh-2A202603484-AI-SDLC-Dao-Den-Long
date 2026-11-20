@@ -566,7 +566,7 @@ for(const id of ['volume','sensitivity']){
     settings[id]=Number(ui[id].value);write('localStorage','island-'+id,settings[id]);
   });
 }
-let game=createGame(island.seed,{},nightNumber,practice,true);
+let game=createGame(island.seed,{},nightNumber,true);
 const campaignTotal=nightNumber===1||practice?0:Number(read('sessionStorage','island-score',0));
 let moteScenes=new Map(), shadeScenes=new Map();
 const drifterScenes=new Map();
@@ -618,7 +618,7 @@ function reset(){
   for(const s of shadeScenes.values())scene.remove(s.g);
   for(const d of drifterScenes.values())scene.remove(d);
   drifterScenes.clear();moteScenes=new Map();shadeScenes=new Map();
-  game=createGame(island.seed,{},nightNumber,practice,true);
+  game=createGame(island.seed,{},nightNumber,true);
   priorPosition=[...game.player.pos];nextHud=0;accumulator=0;
   aim.set(game.player.pos[0],1,game.player.pos[2]-3);target=null;pulseAge=2;lastCountdown=11;lastWind=false;
   ui.pause.hidden=false;
@@ -805,7 +805,7 @@ function populate(time){
     const [px,py,pz]=game.player.pos;
     const distance=Math.hypot(px-m.pos[0],pz-m.pos[2]);
     if(distance<3.4&&Math.abs(py-m.pos[1])<=1.5&&game.player.carried<capacity(game.player)){
-      const pull=(3.4-distance)/1.35;
+      const pull=(3.4-distance)/2.4*.83;
       g.position.x+=(px-g.position.x)*pull;
       g.position.z+=(pz-g.position.z)*pull;
     }
