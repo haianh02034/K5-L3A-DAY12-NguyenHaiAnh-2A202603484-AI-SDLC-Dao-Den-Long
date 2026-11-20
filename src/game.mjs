@@ -55,7 +55,7 @@ export function createGame(seed = island.seed, scenario = {}) {
 
 export const timeLeft = game => Math.max(0, game.initialTime - game.tick / 60);
 
-export function step(game, input = idleInput) {
+export function step(game, input = idleInput, canMove = null) {
   if (game.state !== 'playing') return [];
   game.tick++;
   const { player, lanterns } = game;
@@ -65,6 +65,7 @@ export function step(game, input = idleInput) {
   const [x, z] = input.move;
   const yaw = input.cam_yaw_deg * Math.PI / 180;
   const speed = tuning.player_speed * tickSeconds / Math.max(1, Math.hypot(x, z));
+  const [beforeX, , beforeZ] = player.pos;
   player.pos[0] += (x * Math.cos(yaw) + z * Math.sin(yaw)) * speed;
   player.pos[2] += (-x * Math.sin(yaw) + z * Math.cos(yaw)) * speed;
   const edge = Math.max(1, Math.hypot(player.pos[0], player.pos[2]) / island.radius);
@@ -74,6 +75,15 @@ export function step(game, input = idleInput) {
   if (player.pos[1] > 0 || game.vertical > 0) {
     player.pos[1] = Math.max(0, player.pos[1] + game.vertical * tickSeconds);
     game.vertical = player.pos[1] === 0 ? 0 : game.vertical - 23 * tickSeconds;
+  }
+  if (canMove && !canMove(beforeX, beforeZ, player.pos[0], player.pos[2], player.pos[1])) {
+    const slideX = canMove(beforeX, beforeZ, player.pos[0], beforeZ, player.pos[1]);
+    if (slideX) player.pos[2] = beforeZ;
+    else if (canMove(beforeX, beforeZ, beforeX, player.pos[2], player.pos[1])) player.pos[0] = beforeX;
+    else {
+      player.pos[0] = beforeX;
+      player.pos[2] = beforeZ;
+    }
   }
   for (let i = 0; i < game.motes.length && player.carried < tuning.carry_capacity;) {
     if (distance(player.pos, game.motes[i].pos) > tuning.pickup_radius) {

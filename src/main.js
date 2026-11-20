@@ -1,5 +1,6 @@
 import * as T from 'three';
 import island from './island.json';
+import { canCross } from './collision.mjs';
 import { createGame, idleInput, seeded, step, timeLeft, tuning } from './game.mjs';
 
 const scene = new T.Scene();
@@ -131,6 +132,11 @@ for (let i=0;i<34;i++) {
   sprite(scene,Math.cos(a)*r,1+random()*7,Math.sin(a)*r,29+random()*38,8+random()*13,'#a2aacd',.24,false);
 }
 
+const obstacles = [];
+function addObstacle(x,z,radius,clearance) {
+  obstacles.push({x,z,radius:radius+.32,clearance});
+}
+const canMove = (...movement) => canCross(obstacles, ...movement);
 const batches = new Map();
 function prop(name, geometry, surface, x, y, z, sx, sy, sz, angle) {
   if (!batches.has(name)) batches.set(name,{geometry,surface,matrices:[]});
@@ -138,7 +144,7 @@ function prop(name, geometry, surface, x, y, z, sx, sy, sz, angle) {
   batches.get(name).matrices.push(new T.Matrix4().compose(new T.Vector3(x,y,z),rotation,new T.Vector3(sx,sy,sz)));
 }
 const paths = island.lanterns.map(({pos:[x,,z]},i) => new T.CatmullRomCurve3([
-  new T.Vector3(0,0,0),new T.Vector3(.37*x+7*Math.cos(i),0,.38*z+7*Math.sin(i)),
+  new T.Vector3(0,0,0),new T.Vector3(.37*x+(i ? 7*Math.cos(i) : 0),0,.38*z+7*Math.sin(i)),
   new T.Vector3(.70*x-5*Math.sin(i),0,.72*z),new T.Vector3(x,0,z)
 ]));
 const trail = paths.flatMap(path => path.getPoints(35));
@@ -150,32 +156,53 @@ for (const p of trail) {
   }
 }
 function scatter() {
-  const trunk = new T.CylinderGeometry(.14,.3,1,7);
-  const pine = [material('#255551'),material('#33726c'),material('#427b71')];
-  const blossom = material('#a56692',{roughness:1,flatShading:true});
-  const grass = material('#54866a',{side:T.DoubleSide});
-  for(let i=0;i<1200;i++){
+  const trunk = new T.CylinderGeometry(.12,.27,1,7);
+  const leaf = new T.IcosahedronGeometry(1,0);
+  const palettes = [
+    ['#28564b','#46815c','#6ca16d'], ['#57314f','#ab5579','#dc8598'],
+    ['#77523d','#c68a46','#e4b868']
+  ].map(colors=>colors.map(color=>material(color,{flatShading:true})));
+  const herbs = ['#487761','#686b84','#8c9c55'].map(color=>material(color,{flatShading:true}));
+  const flowers = ['#f1abb7','#e7be76','#bd9de5','#f8d7ae'].map(color=>material(color,{emissive:color,emissiveIntensity:.18}));
+  for(let i=0;i<2250;i++){
     const a=random()*6.283,r=Math.sqrt(random())*(island.radius-2);
     const x=Math.cos(a)*r,z=Math.sin(a)*r;
-    if (trail.some(p=>Math.hypot(x-p.x,z-p.z)<3.5) ||
-        island.lanterns.some(l=>Math.hypot(x-l.pos[0],z-l.pos[2])<10)) continue;
-    const y=height(x,z), size=.6+random()*1.65, v=random();
-    if(v<.19) {
-      prop('rocks',stone,graphite,x,y+size*.25,z,size,size*.74,size*.81,random()*6);
-    } else if(v<.59) {
+    const byTrail=trail.some(p=>Math.hypot(x-p.x,z-p.z)<2.7);
+    const byShrine=island.lanterns.some(l=>Math.hypot(x-l.pos[0],z-l.pos[2])<6.4);
+    if(byShrine || Math.hypot(x,z)<3.5) continue;
+    const y=height(x,z), size=.64+random()*1.40, v=random();
+    if(!byTrail && v<.15) {
+      const lift=.35+size*.15;
+      prop('rocks',stone,graphite,x,y+lift*.28,z,size*.75,lift,size*.62,random()*6);
+      addObstacle(x,z,size*.64,lift*1.22);
+    } else if(!byTrail && v<.57){
+      const theme=(x>18&&z>-15)||Math.sin(x*.18+z*.08)>.6 ? 1 : (z>12&&Math.cos(z*.17)>.02 ? 2 : 0);
+      const palette=palettes[theme];
       prop('trunks',trunk,timber,x,y+size*1.25,z,size,size*2.5,size,0);
+      addObstacle(x,z,size*.27,Infinity);
       for(let j=0;j<3;j++){
-        const width=size*(1.36-j*.25);
-        prop('pine'+j,needle,pine[j],x,y+size*(1.85+j*.75),z,width,size*1.85,width,random()*6);
-      }
-    } else if(v<.68 && x>28){
-      prop('trunks',trunk,timber,x,y+size*1.02,z,size,size*2.04,size,0);
-      for(let j=0;j<4;j++){
-        const a=j*Math.PI/2;
-        prop('blossoms',stone,blossom,x+Math.cos(a)*size*.68,y+size*(2.12+j*.13),z+Math.sin(a)*size*.68,size*.95,size*.72,size*.95,a);
+        const width=size*(1.34-j*.25);
+        if(theme===0){
+          prop('pine'+j,needle,palette[j],x,y+size*(1.93+j*.78),z,width,size*1.70,width,random()*6);
+        }else{
+          for(let branch=0;branch<3;branch++){
+            const angle=branch*2.094+j*.77;
+            prop('canopy'+theme+j,leaf,palette[j],x+Math.cos(angle)*width*.55,
+              y+size*(1.93+j*.61),z+Math.sin(angle)*width*.55,width*.88,width*.75,width*.83,angle);
+          }
+        }
       }
     } else {
-      prop('grass',needle,grass,x,y+.37,z,.17,.81,.17,random()*6);
+      const tint=i%herbs.length;
+      for(let j=0;j<3;j++){
+        const px=x+(random()-.5)*1.4,pz=z+(random()-.5)*1.4;
+        const dy=height(px,pz);
+        prop('herb'+tint,leaf,herbs[tint],px,dy+.17,pz,.26+random()*.28,.24+random()*.24,.24+random()*.25,random()*6);
+        if((i+j)%3===0){
+          const hue=(i+j)%flowers.length;
+          prop('bloom'+hue,leaf,flowers[hue],px,dy+.46,pz,.13,.12,.15,random()*6);
+        }
+      }
     }
   }
   for(const {geometry,surface,matrices} of batches.values()){
@@ -202,6 +229,7 @@ for (const [x,z] of [[-69,-48],[-57,53],[47,-62],[73,33],[-5,85]]) {
     const span=5.1+random()*5.2;
     const monolith=model(scene,needleRidge,cliff,px,height(px,pz)+span*.42,pz,1.6+random(),span,1.5+random());
     monolith.rotation.z=(random()-.5)*.32;
+    addObstacle(px,pz,1.12,Infinity);
   }
 }
 
@@ -213,6 +241,8 @@ function pagoda(x,z,index) {
   const cylinder=new T.CylinderGeometry(1,1,1,12);
   for(let j=0;j<3;j++) model(group,cylinder,graphite,0,.17+j*.3,0,4.2-j*.69,.31,4.2-j*.69);
   for(const a of [-1,1]) for(const b of [-1,1]) {
+    const local = new T.Vector3(a*2,0,b*2).applyAxisAngle(new T.Vector3(0,1,0),group.rotation.y);
+    addObstacle(x+local.x,z+local.z,.28,Infinity);
     model(group,cube,timber,2*a,2.3,2*b,.36,3.7,.36);
     model(group,cube,trim,2*a,3.85,2*b,.49,.40,.49);
   }
@@ -284,7 +314,12 @@ const legs=[-.25,.25].map(x=>{
   model(limb,orb,timber,0,-.78,-.10,.19,.15,.29);
   return limb;
 });
+const shoulders=[];
 for(const side of [-1,1]){
+  const plate=model(actor,stone,gold,side*.54,1.71,-.02,.29,.16,.28);
+  plate.rotation.z=side*.24;
+  shoulders.push(plate);
+  model(actor,cube,ink,side*.29,1.38,-.37,.11,.53,.045).rotation.z=side*.3;
   const sleeve=model(actor,orb,blue,side*.53,1.57,-.04,.24,.36,.26);
   sleeve.rotation.z=side*.36;
   model(actor,orb,skin,side*.64,1.28,-.09,.13,.16,.13);
@@ -307,32 +342,80 @@ function mote() {
   const g=new T.Group();
   scene.add(g);
   model(g,orb,amber,0,0,0,.16,.24,.16);
+  const wing=flat('#fff1c4',{transparent:true,opacity:.65});
+  g.userData.wings=[-1,1].map(side=>model(g,orb,wing,side*.19,.03,0,.19,.034,.09));
   sprite(g,0,0,0,2.8,2.8,'#ffd66a',.88);
   return g;
 }
+const ninjaBlack=material('#10101b');
+const ninjaWrap=material('#292139',{flatShading:true});
+const ninjaSteel=material('#aa8fb3',{metalness:.38,roughness:.31});
+const ninjaEyes=flat('#dfa6fb',{toneMapped:false});
 function shade() {
   const g=new T.Group();
   scene.add(g);
-  model(g,orb,material('#191225'),0,.28,0,.77,.95,.66);
+  const body=new T.Group();
+  g.add(body);
+  model(body,new T.CylinderGeometry(.46,.61,.95,8),ninjaBlack,0,1.22,0,.98,1,.67);
+  model(body,new T.CylinderGeometry(.50,.55,.16,8),ninjaWrap,0,.94,0,1,1,.75);
+  model(body,orb,ninjaBlack,0,2.09,.03,.51,.58,.45);
+  model(body,orb,ninjaWrap,0,2.13,.36,.38,.17,.16);
   for(const side of [-1,1]){
-    model(g,orb,flat('#f994fb'),side*.26,.49,.55,.09,.15,.09);
-    model(g,orb,material('#312044'),side*.65,-.16,0,.37,.55,.37);
+    const eye=model(body,cube,ninjaEyes,.137*side,2.18,.505,.17,.035,.023);
+    eye.rotation.z=.28*side;
+    model(body,orb,ninjaBlack,.46*side,1.48,0,.23,.21,.26);
   }
-  const halo=sprite(g,0,.28,-.45,5.2,5.2,'#a058f0',.67);
-  return {g,halo};
+  model(body,orb,ninjaBlack,0,2.03,.431,.42,.15,.115);
+  const bladeArm=new T.Group();
+  body.add(bladeArm);
+  bladeArm.position.set(.49,1.38,.04);
+  model(bladeArm,cube,ninjaWrap,.16,-.22,.19,.21,.53,.22).rotation.x=.68;
+  const sword=new T.Group();
+  bladeArm.add(sword);
+  sword.position.set(.30,-.30,.42);
+  sword.rotation.z=-.62;
+  sword.rotation.x=-.34;
+  model(sword,cube,ninjaBlack,0,-.08,0,.105,.33,.11);
+  model(sword,cube,ninjaWrap,0,.11,0,.35,.08,.15);
+  model(sword,cube,ninjaSteel,0,.70,0,.093,1.07,.041);
+  model(sword,new T.ConeGeometry(.065,.22,4),ninjaSteel,0,1.34,0,1,1,.48);
+  model(body,orb,ninjaBlack,-.59,1.19,.13,.16,.37,.18).rotation.z=-.55;
+  const feet=[-.22,.22].map(x=>{
+    const foot=new T.Group();
+    foot.position.set(x,.84,0);
+    body.add(foot);
+    model(foot,cube,ninjaBlack,0,-.33,0,.24,.66,.25);
+    model(foot,orb,ninjaWrap,0,-.65,.08,.15,.12,.24);
+    return foot;
+  });
+  const scarf=model(body,cube,ninjaWrap,-.17,1.76,-.64,.18,.065,.90);
+  const halo=sprite(g,0,1.17,-.48,5.4,5.4,'#8750bc',.37);
+  return {g,halo,body,feet,scarf,bladeArm};
 }
 
 let game=createGame();
 let moteScenes=new Map(), shadeScenes=new Map();
 const aim=new T.Vector3(0,0,-6);
-const offset=new T.Vector3(0,37,38);
+const offset=new T.Vector3(0,30,38);
 const keys=new Set();
-const bindings=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyE','KeyQ','KeyR']);
+const bindings=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyE','KeyQ','KeyR','Escape']);
 const actions={jump:false,interact:false,pulse:false};
 const keyActions={Space:'jump',KeyE:'interact',KeyQ:'pulse'};
 const pointer=new T.Raycaster();
 const plane=new T.Plane(new T.Vector3(0,1,0),0);
 let target=null;
+let paused=false;
+function togglePause() {
+  if(game.state!=='playing') return;
+  paused=!paused;
+  keys.clear();
+  for(const key of Object.keys(actions)) actions[key]=false;
+  ui.pause.textContent=paused?'Tiếp tục':'Tạm dừng';
+  ui.pause.setAttribute('aria-pressed',String(paused));
+  ui.breakscreen.hidden=!paused;
+}
+ui.pause.addEventListener('click',togglePause);
+ui.resume.addEventListener('click',togglePause);
 
 function reset(){
   for(const m of moteScenes.values()) scene.remove(m);
@@ -346,11 +429,17 @@ function reset(){
   pulseAge=1;
   target=null;
   ui.ending.hidden=true;
+  ui.pause.hidden=false;
 }
 ui.restart.addEventListener('click',reset);
 addEventListener('keydown',e=>{
   if(!bindings.has(e.code))return;
   e.preventDefault();
+  if(e.code==='Escape') {
+    if(!e.repeat) togglePause();
+    return;
+  }
+  if(paused) return;
   if(e.code==='KeyR'&&game.state!=='playing'){reset();return;}
   keys.add(e.code);
   if(keyActions[e.code]&&!e.repeat)actions[keyActions[e.code]]=true;
@@ -359,14 +448,14 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 renderer.domElement.addEventListener('pointerdown',e=>{
-  if(e.button!==0||game.state!=='playing')return;
+  if(e.button!==0||paused||game.state!=='playing')return;
   pointer.setFromCamera(new T.Vector2(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2),camera);
   target=pointer.ray.intersectPlane(plane,new T.Vector3());
   if(target&&target.length()>island.radius)target.setLength(island.radius);
 });
 const mobile=matchMedia('(pointer: coarse)');
 for(const [id,key] of [['jump','jump'],['interact','interact'],['pulse','pulse']]){
-  ui[id].addEventListener('click',()=>{actions[key]=true;});
+  ui[id].addEventListener('click',()=>{if(!paused)actions[key]=true;});
 }
 
 function resize(){
@@ -404,16 +493,27 @@ function populate(time){
   for(const m of game.motes){
     if(!moteScenes.has(m.id))moteScenes.set(m.id,mote());
     const g=moteScenes.get(m.id);
-    g.position.set(m.pos[0],height(m.pos[0],m.pos[2])+.93+Math.sin(time*3+m.pos[0])*.22,m.pos[2]);
+    const phase=Number(m.id.slice(1))*.77;
+    const driftX=Math.sin(time*.79+phase)*.77;
+    const driftZ=Math.cos(time*.62+phase)*.66;
+    g.position.set(m.pos[0]+driftX,height(m.pos[0],m.pos[2])+1.03+Math.sin(time*1.31+phase)*.43,m.pos[2]+driftZ);
+    g.rotation.y=time*1.03+phase;
+    g.userData.wings.forEach((wing,i)=>{wing.rotation.z=Math.sin(time*14+phase)*.55*(i ? 1 : -1);});
   }
   const active=new Set(game.motes.map(m=>m.id));
   for(const [id,g] of moteScenes) if(!active.has(id)){scene.remove(g);moteScenes.delete(id);}
   for(const s of game.shades){
     if(!shadeScenes.has(s.id))shadeScenes.set(s.id,shade());
-    const {g,halo}=shadeScenes.get(s.id);
-    g.position.set(s.pos[0],height(s.pos[0],s.pos[2])+1.27+Math.cos(time*3+s.pos[0])*.26,s.pos[2]);
-    g.lookAt(camera.position.x,g.position.y,camera.position.z);
-    halo.material.opacity=s.state==='stunned'?.23:.67;
+    const {g,halo,body,feet,scarf,bladeArm}=shadeScenes.get(s.id);
+    g.position.set(s.pos[0],height(s.pos[0],s.pos[2])+.12,s.pos[2]);
+    const moving=s.state==='chase';
+    g.lookAt(game.player.pos[0],g.position.y,game.player.pos[2]);
+    body.rotation.x=moving?.24:-.12;
+    body.position.y=moving?Math.abs(Math.sin(time*9))*.16:.06;
+    feet.forEach((foot,i)=>{foot.rotation.x=moving?Math.sin(time*13+i*Math.PI)*.81:0;});
+    scarf.rotation.x=.15+Math.sin(time*7)*.25;
+    bladeArm.rotation.x=moving?-.42+Math.sin(time*13)*.21:.36;
+    halo.material.opacity=s.state==='stunned'?.66:.34;
   }
 }
 
@@ -422,7 +522,11 @@ scene.add(shrineLight);
 renderer.setAnimationLoop(now=>{
   const dt=Math.min(Math.max(0,(now-previous)/1000),.067);
   previous=now;
-  const time=now/1000;
+  if(paused){
+    renderer.render(scene,camera);
+    return;
+  }
+  const time=game.tick/60;
   accumulator+=dt;
   let x=key('KeyD','ArrowRight')-key('KeyA','ArrowLeft');
   let z=key('KeyS','ArrowDown')-key('KeyW','ArrowUp');
@@ -439,14 +543,16 @@ renderer.setAnimationLoop(now=>{
       input[action]=actions[action]&&!game.previous[action];
       if(input[action])actions[action]=false;
     }
-    for(const e of step(game,input)){
+    for(const e of step(game,input,canMove)){
       if(e.name==='pulse')pulseAge=0;
     }
     accumulator-=1/60;
   }
   const [px,py,pz]=game.player.pos, groundY=height(px,pz);
   avatar.position.set(px,groundY,pz);
-  actor.position.y=py+(walking?Math.sin(time*17)**2*.05:0);
+  actor.position.y=py+(walking?Math.sin(time*17)**2*.077:0);
+  actor.rotation.x=walking?-.18:.04+Math.sin(time*2)*.022;
+  shoulders.forEach((plate,i)=>{plate.rotation.x=walking?Math.sin(time*15+i*Math.PI)*.18:0;});
   if(walking){
     const theta=yaw===0?0:radians;
     const angle=Math.atan2(-(x*Math.cos(theta)+z*Math.sin(theta)),-(-x*Math.sin(theta)+z*Math.cos(theta)));
@@ -497,6 +603,7 @@ renderer.setAnimationLoop(now=>{
     ui.result.textContent=game.state==='won'?'Đảo Bến đã sáng':'Đêm đã khép lại';
     ui.summary.textContent='Điểm của bạn · '+game.score;
     ui.ending.hidden=false;
+    ui.pause.hidden=true;
   }
   map();
   renderer.render(scene,camera);

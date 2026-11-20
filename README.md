@@ -12,7 +12,7 @@ npm start
 
 Mở http://127.0.0.1:4173. Có thể mở trực tiếp `dist/index.html` để chơi offline trên trình duyệt có WebGL 2.
 
-- WASD hoặc phím mũi tên để di chuyển, Space để nhảy, E để nạp đèn, Q để tỏa sáng. Có thể nhấp vào mặt đất để di chuyển.
+- WASD hoặc phím mũi tên để di chuyển, Space để nhảy, E để nạp đèn, Q để tỏa sáng, Esc để tạm dừng hoặc tiếp tục. Có thể nhấp vào mặt đất để di chuyển. Nhảy qua đá thấp và đi vòng qua thân cây.
 - Trên màn hình cảm ứng, chạm lên mặt đất để di chuyển và dùng các nút hành động.
 - Gom ánh sáng và thắp cả năm đèn trước bình minh. Điểm gồm 10 mỗi đom đóm, 200 mỗi đèn, 30 mỗi Bóng Mực bị choáng. Khi thắng, cộng 2 mỗi giây nguyên còn lại và 100 mỗi sinh lực còn lại.
 

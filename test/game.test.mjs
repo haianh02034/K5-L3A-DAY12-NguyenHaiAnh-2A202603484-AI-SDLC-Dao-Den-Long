@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { canCross } from '../src/collision.mjs';
 import { createGame, idleInput, step, tuning } from '../src/game.mjs';
 
 const quiet = { random_motes: false, random_shades: false };
@@ -50,4 +51,21 @@ test('shade damage respects invulnerability and ends on zero flames', () => {
   assert.equal(step(g).find(e=>e.name==='player_hit').data.flames,1);
   for(let i=0;i<120;i++) step(g);
   assert.equal(g.state,'lost');
+});
+
+test('3D movement stops at rocks, clears low rocks in a jump and routes around trunks', () => {
+  const g = createGame(9, quiet);
+  const rock = { x: .45, z: 0, radius: .20, clearance: .62 };
+  const trunk = { x: 1.5, z: 0, radius: .35, clearance: Infinity };
+  const canMove = (...movement) => canCross([rock, trunk], ...movement);
+  const right = input({ move: [1, 0] });
+  for (let i = 0; i < 9; i++) step(g, right, canMove);
+  assert.ok(g.player.pos[0] <= .25);
+  step(g, input({ jump: true }), canMove);
+  for (let i = 0; i < 8; i++) step(g, input({}), canMove);
+  for (let i = 0; i < 12; i++) step(g, right, canMove);
+  assert.ok(g.player.pos[0] > .65 && g.player.pos[0] <= 1.15);
+  for (let i = 0; i < 6; i++) step(g, input({ move: [0, 1] }), canMove);
+  for (let i = 0; i < 9; i++) step(g, right, canMove);
+  assert.ok(g.player.pos[0] > 1.85);
 });
