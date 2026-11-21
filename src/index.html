@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đảo Đèn Lồng</title>
+<style>
+:root{color-scheme:dark;--paper:#F5F1E6;--gold:#F2C14E;--line:#f2c14e46;--frame:#0e1430e8;--danger:#FF5A5F;--ui-font:"Segoe Print","Bradley Hand","Comic Sans MS",cursive}
+*{box-sizing:border-box}body{margin:0;background:#0E1430;color:var(--paper);font:15px/1.5 var(--ui-font);overflow:hidden}
+[hidden]{display:none!important}body>canvas{display:block;width:100vw;height:100vh;touch-action:none}main{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 54% 48%,transparent 51%,#0e143084 100%)}
+.corner,.timer,.carry,.cooldowns,.touch,.pointer{position:fixed}.corner{top:22px;padding:9px 14px;border:1px solid var(--line);border-radius:12px;background:var(--frame);font-variant-numeric:tabular-nums}
+.left{left:22px}.right{right:22px;text-align:right}.corner b{color:var(--gold);font-size:17px}.corner small{display:block;color:var(--paper);opacity:.79}
+.timer{top:19px;left:50%;transform:translateX(-50%);font-size:24px;font-weight:750;padding:4px 13px;background:var(--frame);border-radius:10px;font-variant-numeric:tabular-nums}
+.accessible{--danger:#FFFFFF}.danger{color:var(--danger);animation:blink .8s infinite alternate}@keyframes blink{to{opacity:.57}}
+.carry{bottom:50px;left:50%;transform:translateX(-50%);text-align:center;padding:9px 14px;border:1px solid var(--line);border-radius:13px;background:var(--frame)}
+#slots{display:flex;gap:4px;justify-content:center}.slot{width:13px;height:7px;border-radius:4px;background:#1b2350}.slot.on{background:#FFE58A;box-shadow:0 0 10px #ffb34799}
+#objective{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);max-width:94vw;text-align:center;margin:0;padding:4px 11px;background:var(--frame);border-radius:8px;font-size:13px}
+.cooldowns{display:flex;gap:8px;right:22px;bottom:19px}.cooldowns span{padding:6px 9px;border-radius:8px;background:var(--frame);border:1px solid var(--line);color:var(--gold);font-size:12px}
+#map{position:fixed;bottom:62px;right:22px;width:clamp(80px,12vw,145px);height:auto}
+.touch{display:none;bottom:90px;left:12px;gap:5px}.pause,.quick{display:block;margin:7px 0 0 auto;font-size:11px;padding:5px 8px}
+button{font-family:var(--ui-font)}
+.kicker,.corner small{letter-spacing:.08em;text-transform:uppercase;font-weight:750}
+.right{min-width:113px}
+#map{bottom:18px}
+.cooldowns{bottom:calc(clamp(80px,12vw,145px) + 28px)}
+.signature{position:fixed;z-index:2;right:18px;bottom:17px;width:154px;height:79px;opacity:.96;pointer-events:none}
+.fps{position:fixed;top:66px;left:50%;transform:translateX(-50%);font:700 11px/1.2 monospace;color:#f8df9e;background:#0e1430bf;border:1px solid var(--line);padding:3px 7px;border-radius:6px}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 auto 12px;max-width:360px}
+.settings-grid label{margin:5px 0}
+select{width:100%;font:inherit;background:#172045;color:var(--paper);border:1px solid var(--line);border-radius:8px;padding:5px}
+@media(max-width:570px){.fps{top:45px}}
+.signature svg{display:block;width:100%;height:100%}
+.signature .signed path{stroke-dasharray:1;animation:handwrite 5s linear infinite}
+.signature .signed .finish{animation-name:finish-signature}
+@keyframes handwrite{0%{stroke-dashoffset:1}33%,100%{stroke-dashoffset:0}}
+@keyframes finish-signature{0%,25%{stroke-dashoffset:1}40%,100%{stroke-dashoffset:0}}
+@media(prefers-reduced-motion:reduce){.signature .signed path{animation:none;stroke-dashoffset:0}}
+.practices{border-top:1px solid var(--line);padding-top:12px;margin-top:18px}
+.practices p{margin:0 0 7px;color:#e6cc95}
+.practices .buttons{margin-top:0}
+button{pointer-events:auto;padding:9px 15px;border-radius:8px;background:#172045;color:var(--paper);border:1px solid var(--line);font-weight:700;cursor:pointer}
+.primary{background:var(--gold);color:#111633;border-color:var(--gold)}
+.panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;padding:clamp(22px,6vw,48px);width:min(544px,92vw);border:1px solid var(--line);border-radius:20px;background:var(--frame);box-shadow:0 16px 80px #06091aaa;pointer-events:auto}
+h1,h2{font:800 clamp(34px,5.6vw,61px)/1.06 var(--ui-font);letter-spacing:-.075em;margin:0;color:var(--paper)}
+.kicker{color:var(--gold);letter-spacing:.18em;font-size:11px;text-transform:uppercase}.buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+label{display:grid;gap:5px;margin:16px auto;text-align:left;max-width:280px}input{accent-color:var(--gold)}
+.pointer{left:50%;top:83px;color:var(--gold);font-size:23px;transform:translateX(-50%) rotate(var(--bearing));text-shadow:0 0 12px #ffb347}
+#wind{position:fixed;top:119px;left:50%;transform:translateX(-50%);color:var(--gold);text-shadow:0 1px 7px #000}
+@media(pointer:coarse){.touch{display:flex;flex-wrap:wrap;max-width:230px}.touch button{padding:7px}}
+@media(max-width:570px){.corner{top:10px;font-size:12px}.left{left:10px}.right,#map,.cooldowns{right:10px}.signature{right:8px;bottom:8px;width:113px;height:58px}.timer{top:9px;font-size:18px}.cooldowns{bottom:calc(clamp(80px,12vw,145px) + 22px);flex-direction:column;gap:3px}#map{bottom:10px}.slot{width:9px}.carry{bottom:18px}}
+
+:root{--ui-size:18px}.large-type{--ui-size:22.5px}
+main :is(button,input,select,label,p,small,.corner b,.cooldowns span,.fps,.settings-grid,.notice,.rank-table,output){font-size:var(--ui-size)}
+main h1,main h2{font-size:clamp(calc(var(--ui-size)*1.9),5.6vw,61px)}
+.corner small{letter-spacing:.04em}
+.panel{max-height:91vh;overflow:auto}
+.settings-grid{column-gap:16px;max-width:440px}
+.panel input[type=text]{pointer-events:auto;width:min(250px,100%);font:inherit;color:var(--paper);background:#101a36;border:1px solid var(--line);padding:8px;border-radius:8px}
+#rank-form{margin:15px 0}#rank-form .buttons{margin:8px 0}
+.rank-table{margin:14px auto;text-align:left;border-collapse:collapse;width:100%}.rank-table th,.rank-table td{padding:4px 8px;border-bottom:1px solid var(--line)}
+#keys-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-block:12px}
+#keys-list button{display:flex;justify-content:space-between;gap:5px;padding:5px 7px}
+#keys-status,#rank-status{display:block;min-height:1.4em;color:var(--gold)}
+.notice{position:fixed;left:50%;top:105px;transform:translateX(-50%);max-width:65vw;text-align:center;background:var(--frame);border:1px solid var(--line);border-radius:8px;padding:4px 12px;color:var(--paper)}
+.edge-alert{position:fixed;color:var(--danger);font-size:24px;line-height:1;text-shadow:0 0 8px #031024;transform:translate(-50%,-50%) rotate(var(--edge-angle))}
+.reduce-motion *,.reduce-motion *::before,.reduce-motion *::after{animation-duration:0s!important;transition-duration:0s!important}
+@media(max-width:830px){:root{--ui-size:14px}.large-type{--ui-size:17.5px}.notice{top:96px}}
+@media(max-width:570px){:root{--ui-size:12px}.large-type{--ui-size:15px}.notice{top:68px}}
+</style>
+<main>
+<div id="hud" hidden>
+  <div class="corner left"><small id="night-label"></small><b id="flames"></b><small>Ngọn Lửa</small></div>
+  <div class="timer" id="time">4:00</div><span id="fps" class="fps">— FPS</span>
+  <div class="corner right"><b id="lights"></b><small id="dawn-goal"></small><b id="score"></b><small>Điểm</small><button id="pause" class="pause" type="button">Tạm dừng</button><button id="quick" class="quick" type="button">Qua Đêm nhanh</button></div>
+  <div class="carry"><small id="motes"></small><div id="slots"></div></div>
+  <div class="cooldowns"><span id="dash-cd"></span><span id="pulse-cd"></span></div>
+  <canvas id="map" width="180" height="180" aria-label="Bản đồ"></canvas>
+  <p id="objective" hidden></p><span id="direction" class="pointer" title="Đèn chưa thắp gần nhất" hidden>▲</span><div id="notice" class="notice" role="status" hidden></div><span id="spawn-arrow" class="edge-alert" aria-label="Hướng Bóng Mực xuất hiện" hidden>▲</span>
+  <div class="touch"><button id="jump">Nhảy</button><button id="dash">Lướt</button><button id="interact">Nạp</button><button id="pulse">Tỏa sáng</button></div>
+</div>
+<section id="menu" class="panel" hidden><h1>Đảo Đèn Lồng</h1><div class="buttons"><button id="new-game" class="primary">Bắt đầu</button><button id="menu-rank">Bảng xếp hạng</button><button id="menu-settings">Cài đặt</button></div><div class="practices"><p>Thử đảo</p><div class="buttons"><button id="practice-1">Đảo Bến</button><button id="practice-2">Đảo Cau</button><button id="practice-3">Đảo Chuông</button></div></div></section>
+<section id="intro" class="panel" hidden><p id="intro-night" class="kicker"></p><h2 id="intro-title"></h2><div class="buttons"><button id="play" class="primary">Vào đảo</button><button id="test-dawn" type="button" hidden>Test bình minh</button></div></section>
+<section id="breakscreen" class="panel" hidden><h2>Đang tạm dừng</h2><div class="buttons"><button id="resume" class="primary">Tiếp tục</button><button id="replay">Chơi lại Đêm</button><button id="pause-settings">Cài đặt</button><button id="pause-menu">Về menu</button></div></section>
+<section id="settings" class="panel" hidden><h2>Cài đặt</h2><label>Âm lượng tổng<input id="volume" type="range" min="0" max="1" step=".05"></label><label>Nhạc nền<input id="music-volume" type="range" min="0" max="1" step=".01"></label><label>Độ nhạy chuột<input id="sensitivity" type="range" min=".2" max="2" step=".1"></label><div class="settings-grid">
+<label>Giới hạn FPS<select id="frame-limit"><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option><option value="0">Không giới hạn</option></select></label>
+<label>Chất lượng hình<select id="quality"><option value="light">Nhẹ</option><option value="balanced">Cân bằng</option><option value="sharp">Sắc nét</option></select></label>
+</div><label class="color-setting"><span><input id="color-mode" type="checkbox"> Bảng màu dễ phân biệt</span></label><label><span><input id="reduce-motion" type="checkbox"> Giảm chuyển động</span></label><label><span><input id="large-type" type="checkbox"> Chữ lớn</span></label><div class="buttons"><button id="open-keys">Đổi phím</button><button id="back">Quay lại</button></div></section>
+<section id="key-panel" class="panel" hidden><h2>Đổi phím</h2><div id="keys-list"></div><output id="keys-status" aria-live="polite"></output><div class="buttons"><button id="keys-reset">Khôi phục mặc định</button><button id="keys-back">Quay lại</button></div></section>
+<section id="rank-panel" class="panel" hidden><h2>Bảng xếp hạng</h2><table class="rank-table"><thead><tr><th>#</th><th>Tên</th><th>Điểm</th><th>Đêm</th></tr></thead><tbody id="rank-rows"></tbody></table><p id="rank-empty" hidden>Chưa có điểm.</p><button id="rank-back">Quay lại</button></section>
+<section id="ending" class="panel" hidden><p id="result-label" class="kicker"></p><h2 id="result"></h2><p id="summary"></p><form id="rank-form" hidden><label>Tên người chơi<input id="rank-name" type="text" minlength="3" maxlength="12" pattern="[A-Za-z0-9_]{3,12}" autocomplete="off" required></label><button type="submit">Lưu điểm</button><output id="rank-status" aria-live="polite"></output></form><div class="buttons"><button id="restart" class="primary">Chơi lại đêm</button><button id="next" class="primary">Đêm kế tiếp</button><button id="end-menu">Về menu</button></div></section>
+<div id="signature" class="signature" hidden aria-label="Chữ ký Hai Anh">
+<svg viewBox="0 0 240 124" role="img" aria-label="Chữ ký Hai Anh">
+  <defs>
+    <linearGradient id="plate" x2="1" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#272332"/><stop offset=".62" stop-color="#161620"/><stop offset="1" stop-color="#100f17"/>
+    </linearGradient>
+    <linearGradient id="bezel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop stop-color="#a78650"/><stop offset=".43" stop-color="#ead2a0"/><stop offset="1" stop-color="#8f7044"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0%" y1="10%" x2="90%" y2="95%">
+      <stop stop-color="#f9e5b4"/><stop offset=".48" stop-color="#e1b779"/><stop offset="1" stop-color="#b88d53"/>
+    </linearGradient>
+  </defs>
+  <rect x="7" y="8" width="226" height="111" rx="17" fill="#08080e" opacity=".65"/>
+  <rect x="5" y="5" width="230" height="112" rx="17" fill="url(#plate)" stroke="url(#bezel)" stroke-width="1.1"/>
+  <rect x="10" y="10" width="220" height="102" rx="13" fill="none" stroke="#d4b77e" stroke-opacity=".25" stroke-width=".6"/>
+  <path d="M19 30v-5q0-6 6-6h15M200 19h15q6 0 6 6v5M19 92v5q0 6 6 6h15m160 0h15q6 0 6-6v-5"
+    fill="none" stroke="#e4c892" stroke-opacity=".67" stroke-width=".85" stroke-linecap="round"/>
+  <g class="signed" fill="none" stroke="url(#ink)" stroke-linecap="round" stroke-linejoin="round">
+    <path pathLength="1" stroke-width="2.5" d="M55 67C36 71 31 57 44 44C57 31 82 21 91 23C97 25 91 36 85 45C74 64 64 78 57 94C59 85 67 65 76 48C84 33 89 28 91 27M104 24C98 44 84 64 75 82M57 68C72 61 93 58 117 52"/>
+    <path class="finish" pathLength="1" stroke-width="2.45" d="M89 71C95 62 106 58 107 64C108 69 101 76 96 75C91 75 92 69 98 66C104 63 109 66 116 63C123 57 133 56 134 61C132 66 127 74 123 73C118 72 121 65 128 61C133 58 136 57 138 57C135 63 131 70 135 70C141 69 147 62 152 57L147 71C152 65 160 57 166 56C171 57 162 66 167 68C172 69 178 65 183 60C191 52 199 51 197 58C195 63 187 69 183 68C178 67 185 58 193 56L201 52C195 64 188 81 180 92C175 100 170 95 177 85C184 75 198 68 211 63"/>
+    <path class="finish" pathLength="1" stroke-width="1.1" opacity=".82" d="M53 100C86 88 117 83 152 80C165 79 173 80 178 81"/>
+  </g>
+</svg>
+</div>
+</main>
+<!-- GAME -->
+</html>
